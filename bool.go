@@ -1,9 +1,6 @@
 package conv
 
-import (
-	"strconv"
-	"time"
-)
+import "time"
 
 // BoolConverter interface allows a value to be converted to a bool.
 type BoolConverter interface {
@@ -26,8 +23,11 @@ func Bool(value interface{}) bool {
 	case bool:
 		return T
 	case string:
-		if parsed, err := strconv.ParseBool(T); err == nil {
-			return parsed
+		switch T {
+		case "1", "t", "T", "true", "True", "TRUE", "y", "Y", "yes", "Yes", "YES":
+			return true
+		case "0", "f", "F", "false", "False", "FALSE", "n", "N", "no", "No", "NO":
+			return false
 		}
 	}
 	return Int64(value) != 0

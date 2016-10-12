@@ -72,14 +72,15 @@ Bool conversion from other bool values will be returned 	without modification.
   > Bool(false) // false
   > ```
 
-Bool conversion from strings uses strconv.ParseBool() which 	accepts 1, t, T, TRUE, true, True to return the bool value true. Any 	other value will return false.
+Bool conversion from strings accepts "1", "t", "T", "true", "True", 	"TRUE", "y", "Y", "yes", "Yes", "YES" for true. It returns false for "0", 	"f", "F", "false", "False", "FALSE", "n", "N", "no", "No", "NO".
 
   > Example:
   > ```Go
   > Bool("true") // true
-  > Bool("t") // true
-  > Bool("Foo") // false
+  > Bool("yes") // true
+  > Bool("T") // true
   > Bool("0") // false
+  > Bool("Foo") // false
   > ```
 
 Bool conversion from all other types will return true unless 	it is the zero value for the given type.

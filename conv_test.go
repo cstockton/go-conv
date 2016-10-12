@@ -126,13 +126,14 @@ func init() {
 			assert(true, true),
 			assert(false, false),
 		),
-		group(`Bool conversion from strings uses strconv.ParseBool() which
-			accepts 1, t, T, TRUE, true, True to return the bool value true. Any
-			other value will return false.`,
+		group(`Bool conversion from strings accepts "1", "t", "T", "true", "True",
+			"TRUE", "y", "Y", "yes", "Yes", "YES" for true. It returns false for "0",
+			"f", "F", "false", "False", "FALSE", "n", "N", "no", "No", "NO".`,
 			assert("true", true),
-			assert("t", true),
-			assert("Foo", false),
+			assert("yes", true),
+			assert("T", true),
 			assert("0", false),
+			assert("Foo", false),
 		),
 		group(`Bool conversion from all other types will return true unless
 			it is the zero value for the given type.`,
