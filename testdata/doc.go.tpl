@@ -25,5 +25,5 @@ package conv
 {{- else }}
 	{{ $assertion.Interface }}
 {{- end }}
-{{ end }}
+{{- end }}
 {{ end }}
