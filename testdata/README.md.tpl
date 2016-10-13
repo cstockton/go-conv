@@ -38,9 +38,9 @@ at program startup for these features.
 Feel free to make a issues defining some conversion's that don't exist or
 challenging the current ones. If you find a conversion you wish to change the
 behavior of you MUST add an Assertion within a `*_test` file. A good place may
-be [conv_test.go](blob/master/conv_test.go).
+be [conv_test.go](conv_test.go).
 
-  - Example assertions for a Complex128 type, the functions are helpers that are defined in [assert_test.go](blob/master/assert_test.go).
+  - Example assertions for a Complex128 type, the functions are helpers that are defined in [assert_test.go](assert_test.go).
 
     > Go:
     > ```Go
@@ -53,14 +53,14 @@ be [conv_test.go](blob/master/conv_test.go).
 This may cause other documentation to need updating with the `go generate` command.
 Keep in mind the documentation through the `Section` and `Group` types is meant
 to be consumable rather than comprehensive. Most conversion Assertions should live
-outside of those. The template files are in the [testdata](blob/master/testdata)
+outside of those. The template files are in the [testdata](testdata)
 folder.
 
 The source and target files are defined below:
 
-  - [README.md](blob/master/README.md) -> [README.md.tpl](blob/master/testdata/README.md.tpl)
-  - [doc.go](blob/master/doc.go) -> [README.md.tpl](blob/master/testdata/doc.go.tpl)
-  - [numeric.go](blob/master/numeric.go) -> [README.md.tpl](blob/master/testdata/numeric.go.tpl)
+  - [README.md](README.md) -> [README.md.tpl](testdata/README.md.tpl)
+  - [doc.go](doc.go) -> [README.md.tpl](testdata/doc.go.tpl)
+  - [numeric.go](numeric.go) -> [README.md.tpl](testdata/numeric.go.tpl)
 
 {{ end -}}
 
