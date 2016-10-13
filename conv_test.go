@@ -19,14 +19,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestValue(t *testing.T) {
-	t.Run("Converter", func(t *testing.T) {
-		// Compiler assertion that Value implements Converter
-		f := func(c Converter) {}
-		f(Value{})
-	})
-}
-
 func TestTypes(t *testing.T) {
 	for _, assertion := range assertions {
 		assertion := assertion
@@ -284,37 +276,10 @@ func init() {
 			assert(DocAssertion("Int64((**interface {})(0x1))"), DocAssertion("0")),
 		),
 	)
-	section("Converter Interfaces",
-		group(`Each conversion function has an associated interface containing
-			a single method with no arguments by the same name which returns the
-			associated type. For example the Uint8() functions associated interface
-			is defined as:`,
-			assert(DA(`type Uint8Converter interface { Uint8() uint8 }`)),
-		),
-		group(`Functions will first check if the underlying type implements the
-			destination type interface. If so it will return the result of that
-			without further modification.`,
-			assert(DA(`type MyInt8 int8`)),
-			assert(DA(`func (m MyInt8) Uint8() uint8 { return 42 }`)),
-			assert(DA(`Int8(myInt8)`), DA(`0x2a instead of 0x80`)),
-		),
-		group(`In addition all numeric types are grouped by the
-			NumericConverter interface, this is grouped into a base Converter
-			interface which combines all Converters into a single interface.`,
-			assert(DA(`
-					type Converter interface {
-					  BoolConverter
-					  DurationConverter
-					  NumericConverter // Complex64Converter, ..., Float32Converter, ...Uint64Converter
-					  StringConverter
-					  TimeConverter
-					}`)),
-		),
-	)
 	section("Value",
-		group(`Value is a minimal implementation of the Converter interface. It
-			has a single field V of interface{} type which is passed by all
-			Converter interface methods to the associated conversion functions.`,
+		group(`Value is a convenience struct for performing Conversion. It has a
+			single field V of interface{} type which is passed to the associated
+			conversion functions.`,
 			assert(DA(`func (v Value) Bool() bool { return Bool(v.V) }`)),
 		),
 		group(`This means you may wrap any value with Value{...} for conversions.`,

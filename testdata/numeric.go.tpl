@@ -32,7 +32,7 @@ func Complex64(v interface{}) complex64 {
 	switch T := v.(type) {
 	case Complex64Converter:
 		if T != nil {
-			return T.Complex64()
+			return T.Complex64(T)
 		}
 	case complex64:
 		return T
@@ -47,11 +47,11 @@ func Complex128(v interface{}) complex128 {
 	switch T := v.(type) {
 	case Complex128Converter:
 		if T != nil {
-			return T.Complex128()
+			return T.Complex128(T)
 		}
 	case Complex64Converter:
 		if T != nil {
-			i := T.Complex64()
+			i := T.Complex64(T)
 			return complex(float64(real(i)), float64(imag(i)))
 		}
 	case complex128:
@@ -117,7 +117,7 @@ func {{$thisFunc}}(v interface{}) {{$to}} {
 	switch T := v.(type) {
 	case {{$thisFunc}}Converter:
 		if T != nil {
-			return T.{{$thisFunc}}()
+			return T.{{$thisFunc}}(T)
 		}
 	}
 	return {{ printf "%v(%v(v))" $to $proxyFunc }}
@@ -136,7 +136,7 @@ func {{$thisFunc}}(v interface{}) {{$to}} {
 	switch T := v.(type) {
 	case {{$thisFunc}}Converter:
 		if T != nil {
-			return T.{{$thisFunc}}()
+			return T.{{$thisFunc}}(T)
 		}
 	case bool:
 		if T != false {
@@ -187,6 +187,6 @@ func {{$thisFunc}}(v interface{}) {{$to}} {
 {{- $func := index . 0 | Title }}
 // {{ $func }}Converter interface allows a value to be converted to a {{$to}}.
 type {{ $func }}Converter interface {
-	{{ $func }}() {{ $to }}
+	{{ $func }}(from interface{}) {{ $to }}
 }
 {{- end -}}

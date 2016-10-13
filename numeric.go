@@ -32,72 +32,72 @@ type NumericConverter interface {
 
 // Complex64Converter interface allows a value to be converted to a complex64.
 type Complex64Converter interface {
-	Complex64() complex64
+	Complex64(from interface{}) complex64
 }
 
 // Complex128Converter interface allows a value to be converted to a complex128.
 type Complex128Converter interface {
-	Complex128() complex128
+	Complex128(from interface{}) complex128
 }
 
 // Float32Converter interface allows a value to be converted to a float32.
 type Float32Converter interface {
-	Float32() float32
+	Float32(from interface{}) float32
 }
 
 // Float64Converter interface allows a value to be converted to a float64.
 type Float64Converter interface {
-	Float64() float64
+	Float64(from interface{}) float64
 }
 
 // IntConverter interface allows a value to be converted to a int.
 type IntConverter interface {
-	Int() int
+	Int(from interface{}) int
 }
 
 // Int8Converter interface allows a value to be converted to a int8.
 type Int8Converter interface {
-	Int8() int8
+	Int8(from interface{}) int8
 }
 
 // Int16Converter interface allows a value to be converted to a int16.
 type Int16Converter interface {
-	Int16() int16
+	Int16(from interface{}) int16
 }
 
 // Int32Converter interface allows a value to be converted to a int32.
 type Int32Converter interface {
-	Int32() int32
+	Int32(from interface{}) int32
 }
 
 // Int64Converter interface allows a value to be converted to a int64.
 type Int64Converter interface {
-	Int64() int64
+	Int64(from interface{}) int64
 }
 
 // UintConverter interface allows a value to be converted to a uint.
 type UintConverter interface {
-	Uint() uint
+	Uint(from interface{}) uint
 }
 
 // Uint8Converter interface allows a value to be converted to a uint8.
 type Uint8Converter interface {
-	Uint8() uint8
+	Uint8(from interface{}) uint8
 }
 
 // Uint16Converter interface allows a value to be converted to a uint16.
 type Uint16Converter interface {
-	Uint16() uint16
+	Uint16(from interface{}) uint16
 }
 
 // Uint32Converter interface allows a value to be converted to a uint32.
 type Uint32Converter interface {
-	Uint32() uint32
+	Uint32(from interface{}) uint32
 }
 
 // Uint64Converter interface allows a value to be converted to a uint64.
 type Uint64Converter interface {
-	Uint64() uint64
+	Uint64(from interface{}) uint64
 }
 
 // Complex64 converts the given value to a complex64.
@@ -107,7 +107,7 @@ func Complex64(v interface{}) complex64 {
 	switch T := v.(type) {
 	case Complex64Converter:
 		if T != nil {
-			return T.Complex64()
+			return T.Complex64(T)
 		}
 	case complex64:
 		return T
@@ -122,11 +122,11 @@ func Complex128(v interface{}) complex128 {
 	switch T := v.(type) {
 	case Complex128Converter:
 		if T != nil {
-			return T.Complex128()
+			return T.Complex128(T)
 		}
 	case Complex64Converter:
 		if T != nil {
-			i := T.Complex64()
+			i := T.Complex64(T)
 			return complex(float64(real(i)), float64(imag(i)))
 		}
 	case complex128:
@@ -142,7 +142,7 @@ func Float64(v interface{}) float64 {
 	switch T := v.(type) {
 	case Float64Converter:
 		if T != nil {
-			return T.Float64()
+			return T.Float64(T)
 		}
 	case bool:
 		if T != false {
@@ -203,7 +203,7 @@ func Float32(v interface{}) float32 {
 	switch T := v.(type) {
 	case Float32Converter:
 		if T != nil {
-			return T.Float32()
+			return T.Float32(T)
 		}
 	}
 	return float32(Float64(v))
@@ -216,7 +216,7 @@ func Int64(v interface{}) int64 {
 	switch T := v.(type) {
 	case Int64Converter:
 		if T != nil {
-			return T.Int64()
+			return T.Int64(T)
 		}
 	case bool:
 		if T != false {
@@ -277,7 +277,7 @@ func Int(v interface{}) int {
 	switch T := v.(type) {
 	case IntConverter:
 		if T != nil {
-			return T.Int()
+			return T.Int(T)
 		}
 	}
 	return int(Int64(v))
@@ -289,7 +289,7 @@ func Int8(v interface{}) int8 {
 	switch T := v.(type) {
 	case Int8Converter:
 		if T != nil {
-			return T.Int8()
+			return T.Int8(T)
 		}
 	}
 	return int8(Int64(v))
@@ -301,7 +301,7 @@ func Int16(v interface{}) int16 {
 	switch T := v.(type) {
 	case Int16Converter:
 		if T != nil {
-			return T.Int16()
+			return T.Int16(T)
 		}
 	}
 	return int16(Int64(v))
@@ -313,7 +313,7 @@ func Int32(v interface{}) int32 {
 	switch T := v.(type) {
 	case Int32Converter:
 		if T != nil {
-			return T.Int32()
+			return T.Int32(T)
 		}
 	}
 	return int32(Int64(v))
@@ -326,7 +326,7 @@ func Uint64(v interface{}) uint64 {
 	switch T := v.(type) {
 	case Uint64Converter:
 		if T != nil {
-			return T.Uint64()
+			return T.Uint64(T)
 		}
 	case bool:
 		if T != false {
@@ -390,7 +390,7 @@ func Uint(v interface{}) uint {
 	switch T := v.(type) {
 	case UintConverter:
 		if T != nil {
-			return T.Uint()
+			return T.Uint(T)
 		}
 	}
 	return uint(Uint64(v))
@@ -402,7 +402,7 @@ func Uint8(v interface{}) uint8 {
 	switch T := v.(type) {
 	case Uint8Converter:
 		if T != nil {
-			return T.Uint8()
+			return T.Uint8(T)
 		}
 	}
 	return uint8(Uint64(v))
@@ -414,7 +414,7 @@ func Uint16(v interface{}) uint16 {
 	switch T := v.(type) {
 	case Uint16Converter:
 		if T != nil {
-			return T.Uint16()
+			return T.Uint16(T)
 		}
 	}
 	return uint16(Uint64(v))
@@ -426,7 +426,7 @@ func Uint32(v interface{}) uint32 {
 	switch T := v.(type) {
 	case Uint32Converter:
 		if T != nil {
-			return T.Uint32()
+			return T.Uint32(T)
 		}
 	}
 	return uint32(Uint64(v))

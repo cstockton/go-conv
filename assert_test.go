@@ -21,7 +21,7 @@ var (
 // implements the rules declared in this package. It should return an error for
 // each invalid conversion.
 type Asserter interface {
-	Assert(c Converter) []error
+	Assert(c Value) []error
 }
 
 // Assertions is slice of assertion.
@@ -152,7 +152,7 @@ func assert(value interface{}, args ...interface{}) Assertion {
 }
 
 // Assert implements the asserter interface.
-func (a Assertion) Assert(c Converter) (out []error) {
+func (a Assertion) Assert(c Value) (out []error) {
 	for _, expect := range a.Expects {
 		if errs := a.expect(c, expect); len(errs) > 0 {
 			out = append(out, errs...)
@@ -162,7 +162,7 @@ func (a Assertion) Assert(c Converter) (out []error) {
 }
 
 // Make sure the converter as well as library functions return an expected value.
-func (a Assertion) expect(c Converter, want interface{}) (out []error) {
+func (a Assertion) expect(c Value, want interface{}) (out []error) {
 	err := func(want, got interface{}) {
 		errStr := "\n%v:%d assert(%[3]T(%#[3]v), ...%T(%#[4]v))\n"
 		errStr += "  want %#[4]v\n  got: %v"
@@ -289,7 +289,7 @@ func group(desc string, a ...Assertion) Group {
 
 // Assert implements the asserter interface by calling the Asserter on each
 // member of this slice.
-func (a Assertions) Assert(c Converter) []error {
+func (a Assertions) Assert(c Value) []error {
 	var out []error
 	for _, assertion := range a {
 		errs := assertion.Assert(c)
@@ -309,13 +309,13 @@ const (
 	epsilon64 = float64(.00000000000000001)
 )
 
-func (a Float64Assertion) Assert(converter Converter) []error {
-	abs := math.Abs(converter.Float64() - a.Expect)
+func (a Float64Assertion) Assert(v Value) []error {
+	abs := math.Abs(v.Float64() - a.Expect)
 	if abs < epsilon64 {
 		return nil
 	}
 	return []error{fmt.Errorf("Float64Assertion%v.assert(%#v): abs value %v exceeded epsilon %v",
-		a, converter, abs, epsilon64),
+		a, v, abs, epsilon64),
 	}
 }
 
@@ -324,13 +324,13 @@ type Float32Assertion struct {
 	Expect float32
 }
 
-func (a Float32Assertion) Assert(converter Converter) []error {
-	abs := math.Abs(float64(converter.Float32() - a.Expect))
+func (a Float32Assertion) Assert(v Value) []error {
+	abs := math.Abs(float64(v.Float32() - a.Expect))
 	if abs < epsilon64 {
 		return nil
 	}
 	return []error{fmt.Errorf("Float32Assertion%v.assert(%#v): abs value %v exceeded epsilon %v",
-		a, converter, abs, epsilon64),
+		a, v, abs, epsilon64),
 	}
 }
 
@@ -338,7 +338,7 @@ func (a Float32Assertion) Assert(converter Converter) []error {
 // string representation of time.Now() with generation from templates.
 type DocAssertion string
 
-func (a DocAssertion) Assert(converter Converter) []error { return nil }
+func (a DocAssertion) Assert(v Value) []error { return nil }
 
 // TimeAssertion helps validate time.Time() conversions, specifically because
 // under some conversions time.Now() may be used.
@@ -351,10 +351,10 @@ type TimeAssertion struct {
 // Assert implements the asserter interface for timeAssertion. It will check
 // that the difference between the Moment time plus a.Offset is within a.Epsilon
 // when subtracted by the converter.Time().
-func (a TimeAssertion) Assert(converter Converter) []error {
+func (a TimeAssertion) Assert(v Value) []error {
 	epsilon := a.Epsilon
 	offset := a.Moment.Add(a.Offset)
-	diff := converter.Time().Sub(offset)
+	diff := v.Time().Sub(offset)
 
 	if epsilon == 0 {
 		epsilon = time.Millisecond
@@ -365,7 +365,7 @@ func (a TimeAssertion) Assert(converter Converter) []error {
 	if diff > epsilon {
 		return []error{
 			fmt.Errorf("TimeAssertion%v.assert(%#v): time diff %v exceeded epsilon %v",
-				a, converter, diff, epsilon),
+				a, v, diff, epsilon),
 		}
 	}
 	return nil
@@ -377,13 +377,13 @@ type NowAssertion struct {
 	Epsilon time.Duration
 }
 
-func (a NowAssertion) Assert(c Converter) []error {
+func (a NowAssertion) Assert(v Value) []error {
 	assertion := TimeAssertion{
 		Moment:  time.Now(),
 		Offset:  a.Offset,
 		Epsilon: a.Epsilon,
 	}
-	return assertion.Assert(c)
+	return assertion.Assert(v)
 }
 
 // bounds returns 8-64 bit signed & unsigned boundary edges

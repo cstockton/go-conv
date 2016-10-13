@@ -268,42 +268,9 @@ This library should not panic under any input for conversions. 	If you are able 
   > ```
 
 
-### Converter Interfaces
-
-Each conversion function has an associated interface containing 	a single method with no arguments by the same name which returns the 	associated type. For example the Uint8() functions associated interface 	is defined as:
-
-  > Example:
-  > ```Go
-  > type Uint8Converter interface { Uint8() uint8 }
-  > ```
-
-Functions will first check if the underlying type implements the 	destination type interface. If so it will return the result of that 	without further modification.
-
-  > Example:
-  > ```Go
-  > type MyInt8 int8
-  > func (m MyInt8) Uint8() uint8 { return 42 }
-  > Int8(myInt8) // 0x2a instead of 0x80
-  > ```
-
-In addition all numeric types are grouped by the 	NumericConverter interface, this is grouped into a base Converter 	interface which combines all Converters into a single interface.
-
-  > Example:
-  > ```Go
-  > 
-					type Converter interface {
-					  BoolConverter
-					  DurationConverter
-					  NumericConverter // Complex64Converter, ..., Float32Converter, ...Uint64Converter
-					  StringConverter
-					  TimeConverter
-					}
-  > ```
-
-
 ### Value
 
-Value is a minimal implementation of the Converter interface. It 	has a single field V of interface{} type which is passed by all 	Converter interface methods to the associated conversion functions.
+Value is a convenience struct for performing Conversion. It has a 	single field V of interface{} type which is passed to the associated 	conversion functions.
 
   > Example:
   > ```Go
