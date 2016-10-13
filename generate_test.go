@@ -186,10 +186,10 @@ func (g *Generator) Run(t *testing.T) {
 func (g *Generator) check(t *testing.T) {
 	abs, err := filepath.Abs(g.name)
 	if err != nil {
-		t.Errorf("error[%s] checking abs path for target file: %s", err, g.name)
+		t.Fatalf("error[%s] checking abs path for target file: %s", err, g.name)
 	}
 	if !strings.HasSuffix(abs, filepath.Join(`go-conv`, g.name)) {
-		t.Errorf("error[%s] checking suffix target file: %s", err, g.name)
+		t.Fatalf("error[%s] checking suffix target file: %s", err, g.name)
 	}
 }
 
@@ -197,10 +197,10 @@ func (g *Generator) load(t *testing.T) {
 	p := filepath.Join(`testdata`, g.name+`.tpl`)
 	var err error
 	if g.source, err = ioutil.ReadFile(p); err != nil {
-		t.Errorf("error[%s] reading target file: %s", err, p)
+		t.Fatalf("error[%s] reading target file: %s", err, p)
 	}
 	if g.target, err = ioutil.ReadFile(g.name); err != nil {
-		t.Errorf("error[%s] reading target file: %s", err, g.name)
+		t.Fatalf("error[%s] reading target file: %s", err, g.name)
 	}
 	g.targetSum = md5.Sum(g.target)
 }
@@ -265,6 +265,6 @@ func (g *Generator) commit(t *testing.T) {
 		t.Skip("skipping writing because nowrite flag.")
 	}
 	if err := ioutil.WriteFile(g.name, g.generated, 0644); err != nil {
-		t.Errorf("error[%s] writing to output file: %s", err, g.name)
+		t.Fatalf("error[%s] writing to output file: %s", err, g.name)
 	}
 }
