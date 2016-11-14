@@ -1,34 +1,121 @@
 package conv
 
 import (
-	"fmt"
+	"math"
+	"math/cmplx"
+	"reflect"
+	"strconv"
 	"time"
 )
 
-// TimeConverter interface allows a value to be converted to a time.Time.
-type TimeConverter interface {
-	Time() time.Time
+func (c Conv) convStrToDuration(v string) (time.Duration, bool) {
+	if parsed, err := time.ParseDuration(v); err == nil {
+		return parsed, true
+	}
+	if parsed, err := strconv.ParseInt(v, 10, 0); err == nil {
+		// @TODO This feels more natural but maybe add a option to disable since
+		// it breaks Duration() -> String() -> Duration()
+		return time.Duration(parsed) * time.Second, true
+	}
+	if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+		return time.Duration(1e9 * parsed), true
+	}
+	return 0, false
 }
 
-// Time converts the given value to a time.Time.
-func Time(value interface{}) time.Time {
-	value = Indirect(value)
-
-	switch T := value.(type) {
-	case TimeConverter:
-		if T != nil {
-			return T.Time()
+func (c Conv) convNumToDuration(
+	k reflect.Kind, v reflect.Value) (time.Duration, bool) {
+	switch {
+	case isKindInt(k):
+		return time.Duration(v.Int()), true
+	case isKindUint(k):
+		T := v.Uint()
+		if T > math.MaxInt64 {
+			T = math.MaxInt64
 		}
-	case time.Duration:
-		return time.Now().Add(T)
-	case time.Time:
-		return T
-	case string:
-		if t, err := timeFromString(T); err == nil {
-			return t
+		return time.Duration(T), true
+	case isKindFloat(k):
+		T := v.Float()
+		if math.IsNaN(T) || math.IsInf(T, 0) {
+			return 0, true
+		}
+		return time.Duration(1e9 * T), true
+	case isKindComplex(k):
+		T := v.Complex()
+		if cmplx.IsNaN(T) || cmplx.IsInf(T) {
+			return 0, true
+		}
+		return time.Duration(1e9 * real(T)), true
+	}
+	return 0, false
+}
+
+// Duration attempts to convert the given value to time.Duration, returns the
+// zero value and an error on failure.
+func (c Conv) Duration(from interface{}) (time.Duration, error) {
+	if T, ok := from.(time.Duration); ok {
+		return T, nil
+	}
+	if c, ok := from.(interface {
+		Duration() (time.Duration, error)
+	}); ok {
+		return c.Duration()
+	}
+
+	value := reflect.ValueOf(indirect(from))
+	kind := value.Kind()
+	switch {
+	case reflect.String == kind:
+		if parsed, ok := c.convStrToDuration(value.String()); ok {
+			return parsed, nil
+		}
+	case isKindNumeric(kind):
+		if parsed, ok := c.convNumToDuration(kind, value); ok {
+			return parsed, nil
+		}
+	case reflect.Struct == kind && value.CanInterface():
+		v := value.Interface()
+		if T, ok := v.(time.Time); ok {
+			// @TODO I find this useful but is it WTF?
+			return time.Since(T), nil
 		}
 	}
-	return time.Time{}
+	return 0, newConvErr(from, "time.Duration")
+}
+
+// Time attempts to convert the given value to time.Time, returns the zero value
+// of time.Time and an error on failure.
+func (c Conv) Time(from interface{}) (time.Time, error) {
+	if T, ok := from.(time.Time); ok {
+		return T, nil
+	} else if T, ok := from.(*time.Time); ok {
+		return *T, nil
+	} else if c, ok := from.(interface {
+		Time() (time.Time, error)
+	}); ok {
+		return c.Time()
+	}
+
+	value := reflect.ValueOf(indirect(from))
+	kind := value.Kind()
+	switch {
+	case reflect.String == kind:
+		if T, ok := timeFromString(value.String()); ok {
+			return T, nil
+		}
+	case reflect.Struct == kind:
+		if value.Type().ConvertibleTo(typeOfTime) {
+			valueConv := value.Convert(typeOfTime)
+			if valueConv.CanInterface() {
+				return valueConv.Interface().(time.Time), nil
+			}
+		}
+		field := value.FieldByName("Time")
+		if field.IsValid() && field.CanInterface() {
+			return c.Time(field.Interface())
+		}
+	}
+	return emptyTime, newConvErr(from, "time.Time")
 }
 
 type formatInfo struct {
@@ -37,7 +124,6 @@ type formatInfo struct {
 }
 
 var formats = []formatInfo{
-	{time.ANSIC, ""},
 	{time.RFC3339Nano, ""},
 	{time.RFC3339, ""},
 	{time.RFC850, ""},
@@ -86,18 +172,19 @@ var formats = []formatInfo{
 // I can find a decent lexer or polish up my "timey" Go lib. I am using the
 // table of dates politely released into public domain by github.com/tomarus:
 //   https://github.com/tomarus/parsedate/blob/master/parsedate.go
-func timeFromString(s string) (time.Time, error) {
+func timeFromString(s string) (time.Time, bool) {
 	if len(s) == 0 {
-		return time.Time{}, fmt.Errorf("Failed to parse time: %s", s)
+		return time.Time{}, false
 	}
 	for _, f := range formats {
 		t, err := time.Parse(f.format, s)
 		if err != nil {
 			continue
 		}
-		if t, err = time.Parse(f.format+f.needed, s+time.Now().Format(f.needed)); err == nil {
-			return t, nil
+		if t, err = time.Parse(
+			f.format+f.needed, s+time.Now().Format(f.needed)); err == nil {
+			return t, true
 		}
 	}
-	return time.Time{}, fmt.Errorf("Failed to parse time: %s", s)
+	return time.Time{}, false
 }

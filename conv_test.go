@@ -1,374 +1,385 @@
 package conv
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"os"
+	"path"
+	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
+func TestMain(m *testing.M) {
+	chkMathMaxInt := mathMaxInt
+	chkMathMinInt := mathMinInt
+	chkMathMaxUint := mathMaxUint
+	chkEmptyTime := time.Time{}
+
+	flag.Parse()
+	res := m.Run()
+
+	// validate our max (u|)int sizes don't get written to on accident.
+	if chkMathMaxInt != mathMaxInt {
+		panic("chkMathMaxInt != mathMaxInt")
+	}
+	if chkMathMinInt != mathMinInt {
+		panic("chkMathMinInt != mathMaxInt")
+	}
+	if chkMathMaxUint != mathMaxUint {
+		panic("chkMathMaxUint != mathMaxUint")
+	}
+	if chkEmptyTime != emptyTime {
+		panic("chkEmptyTime != emptyTime")
+	}
+
+	os.Exit(res)
+}
+
 var (
-	generate = flag.Bool("generate", false, "generate files from templates.")
-	nowrite  = flag.Bool("nowrite", false, "print to stdout instead of writing to files.")
+	summary         string
+	assertions      Assertions
+	assertionsIndex = make(AssertionsIndex)
 )
 
-func TestMain(m *testing.M) {
-	flag.Parse()
-	os.Exit(m.Run())
+const (
+	TypeKind reflect.Kind = reflect.UnsafePointer + iota
+	DurationKind
+	TimeKind
+	SliceMask reflect.Kind = (1 << 8)
+	MapMask                = (1 << 16)
+	ChanMask               = (1 << 24)
+)
+
+var refKindNames = map[reflect.Kind]string{
+	DurationKind: "time.Duration",
+	TimeKind:     "time.Time",
 }
 
-func TestTypes(t *testing.T) {
-	for _, assertion := range assertions {
-		assertion := assertion
-		key := fmt.Sprintf("%v/%v",
-			strings.Join(assertion.Tags, "/"), assertion.Interface)
+func reflectHasMask(k, mask reflect.Kind) bool {
+	return (k & mask) == mask
+}
 
-		t.Run(key, func(t *testing.T) {
-			t.Run("T", func(t *testing.T) {
-				if errs := assertion.Assert(Value{assertion.Interface}); len(errs) != 0 {
-					for _, err := range errs {
-						t.Errorf("%s", err)
-					}
-				}
-			})
-			t.Run("*T", func(t *testing.T) {
-				p := &assertion.Interface
-				if errs := assertion.Assert(Value{p}); len(errs) != 0 {
-					for _, err := range errs {
-						t.Errorf("%s", err)
-					}
-				}
-			})
-			t.Run("**T", func(t *testing.T) {
-				p := &assertion.Interface
-				if errs := assertion.Assert(Value{&p}); len(errs) != 0 {
-					for _, err := range errs {
-						t.Errorf("%s", err)
-					}
-				}
-			})
-		})
+func reflectKindStr(k reflect.Kind) string {
+	if reflectHasMask(k, ChanMask|SliceMask|MapMask) {
+		return refKindNames[k]
 	}
+	return k.String()
 }
 
-type MyInt8 int8
-
-func (m MyInt8) Uint8() uint8 { return 42 }
-
-type MyValue struct {
-	Value
-}
-
-func V(value interface{}) MyValue {
-	return MyValue{}
-}
-func (m MyValue) Uint16() uint16 { return 42 }
-
-func init() {
-	timeParse := func(f, s string) time.Time {
-		t, err := time.Parse(f, s)
-		if err != nil {
-			panic(err)
+// returns the reflect.Kind with the additional masks / types for conversions.
+func convKindStr(v interface{}) string { return reflectKindStr(convKind(v)) }
+func convKind(v interface{}) reflect.Kind {
+	switch T := indirect(v).(type) {
+	case reflect.Kind:
+		return T
+	case Expecter:
+		return T.Kind()
+	case time.Time:
+		return TimeKind
+	case time.Duration:
+		return DurationKind
+	default:
+		kind := reflect.TypeOf(T).Kind()
+		if reflect.Slice == kind || kind == reflect.Array {
+			kind |= SliceMask
+		} else if kind == reflect.Map {
+			kind |= MapMask
+		} else if kind == reflect.Chan {
+			kind |= SliceMask
 		}
-		return t
+		return kind
 	}
-	DA := func(s string) DocAssertion { return DocAssertion(s) }
-	myInt8 := MyInt8(-1 << 7)
-	assert(myInt8, uint8(42))
+}
 
-	myValue := Value{"12345.6789"}
-	assert(myValue.Int64(), int64(myValue.Int64()))
-	assert(myValue.Float32(), float32(myValue.Float32()))
+// Expecter defines a type of conversion for v and will return an error if the
+// value is unexpected.
+type Expecter interface {
 
-	summarize(`Package conv provides conversions without using reflection across
-		most built-in Go types through type assertion switches. Conversions are
-		defined in Assertion structures which are used to generate unit tests as
-		well as documentation. This page was generated using "go generate" and each
-		code example here is ran within a unit test before it is generated to ensure
-		the accuracy of this page. In addition unit tests will fail when this document
-		becomes out of date.`)
-	section("String Conversions",
-		group(`String conversion from other string values will be returned
-			without modification. As a special case []byte will also be returned
-			after a Go string conversion is applied.`,
-			assert([]byte("Foo"), "Foo"),
-			assert("Foo", "Foo"),
-			assert("", ""),
-		),
-		group(`String conversion from any other value will simply be the
-			 result of calling fmt.Sprintf("%v", value).`,
-			assert(true, "true"),
-			assert(false, "false"),
-			assert(int64(123), "123"),
-			assert(uint8(12), "12"),
-			assert(time.Duration(3723000000000), "1h2m3s"),
-			assert(DocAssertion("String(time.Time{sec:63393490862, nsec:3, loc: time.UTC})"),
-				DocAssertion("2009-11-10 23:01:02.000000003 +0000 UTC")),
-		),
-		group(`String conversion from types that do not have a valid conversion path
-			will still have sane string conversion for troubleshooting.`,
-			assert(struct{ msg string }{"Foo"}, "{Foo}"),
-		),
-	)
-	section("Bool Conversions",
-		group(`Bool conversion from other bool values will be returned
-			without modification.`,
-			assert(true, true),
-			assert(false, false),
-		),
-		group(`Bool conversion from strings accepts "1", "t", "T", "true", "True",
-			"TRUE", "y", "Y", "yes", "Yes", "YES" for true. It returns false for "0",
-			"f", "F", "false", "False", "FALSE", "n", "N", "no", "No", "NO".`,
-			assert("true", true),
-			assert("yes", true),
-			assert("T", true),
-			assert("0", false),
-			assert("Foo", false),
-		),
-		group(`Bool conversion from all other types will return true unless
-			it is the zero value for the given type.`,
-			assert(int64(0), false),
-			assert(int64(123), true),
-			assert(time.Duration(0), false),
-			assert(time.Duration(123), true),
-			assert(time.Time{}, false),
-			assert(timeParse(time.RFC3339Nano, "2016-11-03T15:04:05.12345-07:15"), true),
-		),
-	)
-	section("Duration Conversions",
-		group(`Duration conversion from other duration values will be returned
-			without modification.`,
-			assert(time.Duration(time.Second*3), time.Duration(time.Second*3)),
-			assert(time.Duration(-(time.Second*3)), time.Duration(-(time.Second*3))),
-		),
-		group(`Duration conversion from strings attempts to use time.ParseDuration()
-			as documented in the standard Go libraries time package. If parsing
-			fails then it will be passed along to Int64() followed by a standard
-			Go time.Duration conversion.`,
-			assert("3s", time.Duration(time.Second*3)),
-			assert("-3s", time.Duration(-(time.Second*3))),
-			assert("3", time.Duration(3)),
-		),
-		group(`Duration conversion from time.Time is a special case that
-			returns the time elapsed since time.Unix(). This behavior should be
-			considered experimental.`,
-			assert(timeParse(time.RFC3339Nano, "2016-11-03T15:04:05.12345-07:15"),
-				time.Duration(1478211545)),
-		),
-		group(`Duration conversion from all other values will be the result
-			of calling Int64() followed by a standard Go time.Duration conversion.
-			The result of the Int64() conversion will be in nanoseconds.`,
-			assert("3", time.Duration(3)),
-			assert(3, time.Duration(3)),
-			assert(true, time.Duration(1)),
-			assert(false, time.Duration(0)),
-		),
-	)
-	section("Time Conversions",
-		group(`Time conversion from other time values will be returned
-			without modification.`,
-			assert(
-				time.Date(2009, time.November, 10, 23, 1, 2, 3, time.UTC),
-				time.Date(2009, time.November, 10, 23, 1, 2, 3, time.UTC)),
-			assert(time.Time{}, time.Time{}),
-		),
-		group(`Time conversion from time.Duration is a special case that
-			returns the current moment from time.Now() plus the duration. For example
-			if the time was 2009-11-10 23:01:02, the string below would be a time.Time
-			struct with an additional 3 seconds.`,
-			assert(
-				DocAssertion(`Time(time.Duration(time.Seconds*3))`),
-				DocAssertion(`time.Time{"2009-11-10 23:01:05.000000003 +0000 UTC"}`)),
-		),
-		group(`Time conversion from strings will be passed through time.Parse
-			using a variety of formats. Strings that could not be parsed along
-			with all other values will return an empty time.Time{} struct.`,
-			assert("Monday, 02 Jan 2006 15:04:05 -0700", TimeAssertion{
-				Moment: timeParse("Monday, 02 Jan 2006 15:04:05 -0700", "Monday, 02 Jan 2006 15:04:05 -0700"),
-			}),
-			assert("1", time.Time{}),
-			assert(true, time.Time{}),
-			assert(1, time.Time{}),
-		),
-	)
-	section("Numeric Conversions",
-		group(`Numeric conversion from other numeric values of an identical
-			type will be returned without modification. Conversions across different
-			types will follow the rules in the official Go language spec under the
-			heading "Conversions between numeric types"`,
-			assert(int8(10), int64(10)),
-			assert(float64(10), int8(10)),
-			assert(complex128(127), int8(127)),
-		),
-		group(`This means overflow is identical to conversion within Go code
-			through type conversion during runtime which do not panic.`,
-			assert(int64(1<<7), int8(-1<<7)),
-			assert(int64(-1<<7), uint8(1<<7)),
-			assert(int64(1<<8), uint8(0)),
-			assert(float64(12345.6789), int8(57)),
-			assert(float64(12345.6789), float32(12345.679)),
-			assert(float64(12345.6789), Uint64(12345)),
-		),
-		group(`Numeric conversion from strings uses the associated strconv.Parse*
-			from the standard library. Overflow is handled like the cases above.`,
-			assert("-123456789", int64(-123456789)),
-			assert("123456789", uint64(123456789)),
-			assert("12345.6789", float32(12345.679)),
-			assert("true", int64(1)),
-			assert("false", int64(0)),
-			assert("abcde", int64(0)),
-		),
-		group(`For more natural Float -> Integer when the underlying value is a
-			string. Conversion functions will always try to parse the value as the
-			target type first. If parsing fails float parsing with truncation will be
-			attempted. This deviates from the standard library but should be useful in
-			common practice.`,
-			assert(DA(`strconv.Atoi("-123.456")`), DA(`0 - err: invalid syntax`)),
-			assert("-123.456", int64(-123)),
-			assert("123.456", int64(123)),
-			assert("123.456", uint64(123)),
-		),
-		group(`This does not apply for unsigned integers if the value is negative.
-			Instead performing a more intuitive (to the human) truncation to zero.`,
-			assert(DA(`strconv.Atoi("-123.456")`), DA(`0 - err: invalid syntax`)),
-			assert("-123.456", int64(-123)),
-			assert("-1.23", int64(-1)),
-			assert("-1.23", uint64(0)),
-		),
-		group(`Numeric conversions from durations assign the elapsed
-			nanoseconds using Go conversions.`,
-			assert(time.Duration(time.Nanosecond*20), int8(20)),
-			assert(-time.Duration(time.Nanosecond*20), int64(-20)),
-		),
-		group(`Numeric conversions to times are a special case that result
-			in the time since the unix epoch as returned by Time.Unix(). This behavior
-			is experimental and may change in the future.`,
-			assert(time.Date(2009, time.November, 10, 23, 1, 2, 3, time.UTC), 1257894062),
-			assert(time.Time{}, -62135596800),
-		),
-		group(`Numeric conversions from bool are 1 for true, 0 for false.
-			All other conversions that fail return 0.`,
-			assert(true, int64(1)),
-			assert(false, int64(0)),
-			assert(struct{ msg string }{"Hello World"}, int64(0)),
-		),
-	)
-	section("Pointer Conversions",
-		group(`All conversions will allow up to two levels of pointer
-			indirection if non-nil and the value pointer to is a convertable type.
-			This is facilitated via the Indirect() function.`,
-			assert(DocAssertion("(*string)(0x001)"),
-				DocAssertion("Underlying value, i.e.: `Foo`")),
-			assert(DocAssertion("(**string)(0x01)"),
-				DocAssertion("Underlying value, i.e.: `Foo`")),
-		),
-	)
-	section("Panics",
-		group(`This library should not panic under any input for conversions.
-			If you are able to produce a panic please file a bug report.`,
-			assert(DocAssertion("Int64(nil)"), DocAssertion("0")),
-			assert(DocAssertion("Int64([][]int{})"), DocAssertion("0")),
-			assert(DocAssertion("Int64((chan string)(nil))"), DocAssertion("0")),
-			assert(DocAssertion("Int64((*interface{})(nil))"), DocAssertion("0")),
-			assert(DocAssertion("Int64((*interface {})(0x01))"), DocAssertion("0")),
-			assert(DocAssertion("Int64((**interface {})(0x1))"), DocAssertion("0")),
-		),
-	)
-	section("Value",
-		group(`Value is a convenience struct for performing Conversion. It has a
-			single field V of interface{} type which is passed to the associated
-			conversion functions.`,
-			assert(DA(`func (v Value) Bool() bool { return Bool(v.V) }`)),
-		),
-		group(`This means you may wrap any value with Value{...} for conversions.`,
-			assert(DA(`v := Value{"12345.6789"}`)),
-			assert(DA(`v.Int64()`), DA(String(int64(myValue.Int64())))),
-			assert(DA(`v.Float64()`), DA(String(float64(myValue.Float64())))),
-			assert(DA(`v.Float32()`), DA(String(float32(myValue.Float32())))),
-		),
-	)
-	asserts("time",
-		assert(time.Duration(3*time.Second), NowAssertion{Offset: time.Second * 3}),
-	)
-	asserts("numeric",
-		asserts("float32",
-			assert(float32(1.0), true, numerics(1),
-				Float32Assertion{float32(1.0)},
-				Float64Assertion{float64(1.0)}),
-			assert(float32(0), false, numerics(0),
-				Float32Assertion{float32(0)},
-				Float64Assertion{float64(0)}),
-			assert(float32(-1.0), true, numerics(-1),
-				Float32Assertion{float32(-1.0)},
-				Float64Assertion{float64(-1.0)}),
-		),
-		asserts("float64",
-			assert(float64(1.0), true, numerics(1),
-				Float32Assertion{float32(1.0)},
-				Float64Assertion{float64(1.0)}),
-			assert(float64(0), false, numerics(0),
-				Float32Assertion{float32(0)},
-				Float64Assertion{float64(0)}),
-			assert(float64(-1.0), true, numerics(-1),
-				Float32Assertion{float32(-1.0)},
-				Float64Assertion{float64(-1.0)}),
-		),
-		asserts("Complex64",
-			assert(complex64(-1), numerics(-1)),
-			assert(complex64(0), numerics(0)),
-			assert(complex64(1), numerics(1)),
-		),
-		asserts("Complex128",
-			assert(complex128(-1), true, "(-1+0i)", numerics(-1), durations(-1)),
-			assert(complex128(0), false, "(0+0i)", numerics(0), durations(0)),
-			assert(complex128(1), true, "(1+0i)", numerics(1), durations(1)),
-		),
-		asserts("int",
-			assert(int(-1), true, numerics(-1)),
-			assert(int(0), false, numerics(0)),
-			assert(int(1), true, numerics(1)),
-		),
-		asserts("int8",
-			assert(int8(-1), true, numerics(-1)),
-			assert(int8(0), false, numerics(0)),
-			assert(int8(1), true, numerics(1)),
-		),
-		asserts("int16",
-			assert(int16(-1), true, numerics(-1)),
-			assert(int16(0), false, numerics(0)),
-			assert(int16(1), true, numerics(1)),
-		),
-		asserts("int32",
-			assert(int32(-1), true, numerics(-1)),
-			assert(int32(0), false, numerics(0)),
-			assert(int32(1), true, numerics(1)),
-		),
-		asserts("int64",
-			assert(int64(-1), true, numerics(-1)),
-			assert(int64(0), false, numerics(0)),
-			assert(int64(1), true, numerics(1)),
-		),
-		asserts("uint",
-			assert(uint(0), false, numerics(0)),
-			assert(uint(1), true, numerics(1)),
-		),
-		asserts("uint8",
-			assert(uint8(0), false, numerics(0)),
-			assert(uint8(1), true, numerics(1)),
-		),
-		asserts("uint16",
-			assert(uint16(0), false, numerics(0)),
-			assert(uint16(1), true, numerics(1)),
-		),
-		asserts("uint32",
-			assert(uint32(0), false, numerics(0)),
-			assert(uint32(1), true, numerics(1)),
-		),
-		asserts("uint64",
-			assert(uint64(0), false, numerics(0)),
-			assert(uint64(1), true, numerics(1)),
-		),
-	)
+	// Exp is given the result of conversion and an error if one occurred. The
+	// type of conversion operation should be the type of Kind().
+	Expect(got interface{}, err error) error
+
+	// Kind returns the type of conversion that should be given to Exepct().
+	Kind() reflect.Kind
+}
+
+type AssertionsLookup struct {
+	assertion *Assertion
+	expecter  Expecter
+}
+
+// // Assertions is map of assertions by the Expecter kind.
+type AssertionsIndex map[reflect.Kind][]AssertionsLookup
+
+// Assertions is slice of assertions.
+type Assertions []*Assertion
+
+// EachOf will visit each assertion that contains an Expecter for reflect.Kind.
+func (a Assertions) EachOf(k reflect.Kind, f func(a *Assertion, e Expecter)) int {
+	found := assertionsIndex[k]
+	for _, v := range found {
+		f(v.assertion, v.expecter)
+	}
+	return len(found)
+}
+
+// Assertion represents a set of expected values from a Converter. It's the
+// general implementation of asserter. It will compare each Expects to the
+// associated Converter.T(). It returns an error for each failed conversion
+// or an empty error slice if no failures occurred.
+type Assertion struct {
+
+	// From is the underlying value to be used in conversions.
+	From interface{}
+
+	// Name of this assertion
+	Name string
+
+	// Code to construct Interface
+	Code string
+
+	// Type of Interface field using fmt %#T.
+	Type string
+
+	// File is the file the assertion is defined in.
+	File string
+
+	// Line is the line number the assertion is defined in.
+	Line int
+
+	// Description for this assertion.
+	Desc string
+
+	// Expects contains a list of values this Assertion expects to see as a result
+	// of calling the conversion function for the associated type. For example
+	// appending a single int64 to this slice would mean it is expected that:
+	//   conv.Int64(assertion.From) == Expect[0].(int64)
+	// When appending multiple values of the same type, the last one appended is
+	// used.
+	Exps []Expecter
+}
+
+func (a Assertion) String() string {
+	return fmt.Sprintf("[assertion %v:%d] from `%v` (%[3]T)",
+		a.File, a.Line, a.From)
+}
+
+// assert will create an assertion type for the first argument given. Args is
+// consumed into the Expects slice, with slices of interfaces being flattened.
+func assert(value interface{}, args ...interface{}) {
+	a := &Assertion{
+		From: value,
+		Type: typename(value),
+	}
+	split := strings.SplitN(a.Type, ".", 2)
+	a.Name = strings.Title(split[len(split)-1])
+	a.Code = fmt.Sprintf("%#v", value)
+	_, a.File, a.Line, _ = runtime.Caller(1)
+	a.File = path.Base(a.File)
+
+	var slurp func(interface{})
+	slurp = func(value interface{}) {
+		switch T := value.(type) {
+		case []interface{}:
+			for _, t := range T {
+				slurp(t)
+			}
+		case []Expecter:
+			for _, t := range T {
+				slurp(t)
+			}
+		case Expecter:
+			a.Exps = append(a.Exps, T)
+		default:
+			a.Exps = append(a.Exps, Exp{value})
+		}
+	}
+	for _, arg := range args {
+		slurp(arg)
+	}
+	for _, exp := range a.Exps {
+		k := exp.Kind()
+		assertionsIndex[k] = append(assertionsIndex[k], AssertionsLookup{a, exp})
+	}
+	assertions = append(assertions, a)
+}
+
+// Exp is used for ducmentation purposes.
+type Exp struct {
+	Want interface{}
+}
+
+func (e Exp) Kind() reflect.Kind {
+	return convKind(e.Want)
+}
+
+func (e Exp) Expect(got interface{}, err error) error {
+	if err == nil && !reflect.DeepEqual(got, e.Want) {
+		return fmt.Errorf("(%T) %[1]v != %v (%[2]T)", got, e.Want)
+	}
+	return err
+}
+
+func (e Exp) String() string {
+	return fmt.Sprintf("Exp{Want: %v (type %[1]T)}", e.Want)
+}
+
+// SkipExp is used for ducmentation purposes.
+type SkipExp string
+
+func (e SkipExp) Kind() reflect.Kind { return reflect.Invalid }
+func (e SkipExp) Expect(interface{}, error) error {
+	return nil
+}
+
+// FuncExp is expected to have it's own self contained test.
+type FuncExp func(interface{}, error) error
+
+func (e FuncExp) Kind() reflect.Kind { return reflect.Invalid }
+func (e FuncExp) Expect(got interface{}, err error) error {
+	return e(got, err)
+}
+
+// ErrorExp ensures a given conversion failed.
+type ErrorExp struct {
+	Exp
+	ErrStr string
+}
+
+func experr(want interface{}, contains string) Expecter {
+	return ErrorExp{ErrStr: contains, Exp: Exp{Want: want}}
+}
+
+func (e ErrorExp) Expect(got interface{}, err error) error {
+	if err != nil {
+		if len(e.ErrStr) == 0 {
+			return err
+		}
+		if !strings.Contains(err.Error(), e.ErrStr) {
+			return fmt.Errorf("error did not match:\n  exp: %v\n  got: %v", e.ErrStr, err)
+		}
+	} else if len(e.ErrStr) > 0 {
+		return errors.New("expected non-nil err")
+	}
+	return nil
+}
+
+// Float64Exp asserts that (converter.Float64() - Exp) < epsilon64
+type Float64Exp struct {
+	Want float64
+}
+
+const (
+	epsilon64 = float64(.00000000000000001)
+)
+
+func (e Float64Exp) Kind() reflect.Kind { return reflect.Float64 }
+func (e Float64Exp) Expect(got interface{}, err error) error {
+	val := got.(float64)
+	abs := math.Abs(val - e.Want)
+	if abs < epsilon64 {
+		return err
+	}
+	return fmt.Errorf("%#v.assert(%#v): abs value %v exceeded epsilon %v",
+		e, val, abs, epsilon64)
+}
+
+// Float32Exp asserts that (converter.Float32() - Exp) < epsilon64
+type Float32Exp struct {
+	Want float32
+}
+
+func (e Float32Exp) Kind() reflect.Kind { return reflect.Float32 }
+func (e Float32Exp) Expect(got interface{}, err error) error {
+	val := got.(float32)
+	abs := math.Abs(float64(val - e.Want))
+	if abs < epsilon64 {
+		return err
+	}
+	return fmt.Errorf("%#v.assert(%#v): abs value %v exceeded epsilon %v",
+		e, val, abs, epsilon64)
+}
+
+// TimeExp helps validate time.Time() conversions, specifically because under
+// some conversions time.Now() may be used. It will check that the difference
+// between the Moment is the same as the given value after truncation and
+// rounding (if either is set) is identical.
+type TimeExp struct {
+	Moment   time.Time
+	Offset   time.Duration
+	Round    time.Duration
+	Truncate time.Duration
+}
+
+func (e TimeExp) String() string     { return fmt.Sprintf("%v", e.Moment) }
+func (e TimeExp) Kind() reflect.Kind { return TimeKind }
+func (e TimeExp) Expect(got interface{}, err error) error {
+	val := got.(time.Time).Add(e.Offset)
+	if e.Round != 0 {
+		val = val.Round(e.Round)
+	}
+	if e.Truncate != 0 {
+		val = val.Round(e.Truncate)
+	}
+	if !e.Moment.Equal(val) {
+		return fmt.Errorf(
+			"times did not match:\n  exp: %v\n  got: %v", e.Moment, val)
+	}
+	return nil
+}
+
+// DurationExp supports fuzzy duration conversions.
+type DurationExp struct {
+	Want  time.Duration
+	Round time.Duration
+}
+
+func (e DurationExp) Kind() reflect.Kind { return DurationKind }
+func (e DurationExp) Expect(got interface{}, err error) error {
+	d := got.(time.Duration)
+	if e.Round != 0 {
+		neg := d < 0
+		if d < 0 {
+			d = -d
+		}
+		if m := d % e.Round; m+m < e.Round {
+			d = d - m
+		} else {
+			d = d + e.Round - m
+		}
+		if neg {
+			d = -d
+		}
+	}
+	if e.Want != d {
+		return fmt.Errorf("%#v: %#v != %#v", e, e.Want, d)
+	}
+	return nil
+}
+
+// NowExp is like TimeExp but makes `Moment` time.Now
+type NowExp struct {
+	TimeExp
+}
+
+func (e NowExp) Kind() reflect.Kind { return TimeKind }
+func (e NowExp) Expect(got interface{}, err error) error {
+	e.TimeExp.Moment = time.Now()
+	return e.TimeExp.Expect(got, err)
+}
+
+func typename(value interface{}) (name string) {
+	parts := strings.SplitN(fmt.Sprintf("%T", value), ".", 2)
+
+	if len(parts) == 2 {
+		name = parts[0] + "." + parts[1]
+	} else {
+		name = parts[0]
+	}
+	return
 }
