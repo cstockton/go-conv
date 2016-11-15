@@ -177,11 +177,11 @@ func timeFromString(s string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	for _, f := range formats {
-		t, err := time.Parse(f.format, s)
+		_, err := time.Parse(f.format, s)
 		if err != nil {
 			continue
 		}
-		if t, err = time.Parse(
+		if t, err := time.Parse(
 			f.format+f.needed, s+time.Now().Format(f.needed)); err == nil {
 			return t, true
 		}
