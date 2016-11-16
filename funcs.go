@@ -127,7 +127,7 @@ func Uint64(from interface{}) uint64 {
 // Example:
 //
 //   var into []int64
-//   err := conv.Map(&into, []string{"12", "345", "6789"})
+//   err := conv.Slice(&into, []string{"12", "345", "6789"})
 //   // into -> []int64{12, 234, 6789}
 //
 // See examples for more usages.

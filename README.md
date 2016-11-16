@@ -9,9 +9,19 @@
   >
   > Example:
   > ```Go
-  > conv.Bool("true") // bool(true)
-  > conv.Int64("-1.23") // -1
-  > conv.Duration("123ns") // time.Duration(123)
+  > // Basic types
+  > b := conv.Bool("true")
+  >   b -> true
+  >
+  > // Slices
+  > var into []int64
+  > err := conv.Slice(&into, []string{"12", "345", "6789"})
+  >   into -> []int64{12, 234, 6789}
+  >
+  > // Maps
+  > into := make(map[string]int64)
+  > err := conv.Map(into, []string{"12", "345", "6789"})
+  >   into -> map[string]int64{"0": 12, "1", 234, "2", 6789}
   > ```
 
 
