@@ -30,6 +30,7 @@ func init() {
 			"1", "t", "T", "true", "True", "TRUE", "y", "Y", "yes", "Yes", "YES"}
 		for _, truthy := range trueStrings {
 			assert(truthy, true)
+			assert(testStringConverter(truthy), true)
 		}
 
 		// strings: falsy
@@ -37,6 +38,7 @@ func init() {
 			"0", "f", "F", "false", "False", "FALSE", "n", "N", "no", "No", "NO"}
 		for _, falsy := range falseStrings {
 			assert(falsy, false)
+			assert(testStringConverter(falsy), false)
 		}
 
 		// numerics: true
@@ -106,9 +108,9 @@ func init() {
 
 		// errors
 		assert(nil, experr(false, `cannot convert <nil> (type <nil>) to bool`))
-		assert("foo", experr(false, `cannot convert "foo" (type string) to bool`))
+		assert("foo", experr(false, `cannot parse "foo" (type string) as bool`))
 		assert("tooLong", experr(
-			false, `cannot convert "tooLong" (type string) to bool`))
+			false, `cannot parse type string with len 7 as bool`))
 		assert(struct{}{}, experr(
 			false, `cannot convert struct {}{} (type struct {}) to `))
 	}
@@ -137,9 +139,9 @@ func init() {
 
 		// errors
 		assert(nil, experr(false, `cannot convert <nil> (type <nil>) to bool`))
-		assert("foo", experr(false, `cannot convert "foo" (type string) to bool`))
+		assert("foo", experr(false, `cannot parse "foo" (type string) as bool`))
 		assert("tooLong", experr(
-			false, `cannot convert "tooLong" (type string) to bool`))
+			false, `cannot parse type string with len 7 as bool`))
 		assert(struct{}{}, experr(
 			false, `cannot convert struct {}{} (type struct {}) to `))
 	}

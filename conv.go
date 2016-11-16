@@ -10,10 +10,8 @@ import (
 )
 
 // Conv implements the Converter interface. It does not require initialization
-// or share state and is safe for use by multiple Go routines.
-type Conv struct {
-	// @TODO options
-}
+// or share state and is safe for use by multiple Goroutines.
+type Conv struct{}
 
 func newConvErr(from interface{}, to string) error {
 	return fmt.Errorf("cannot convert %#v (type %[1]T) to %v", from, to)
@@ -23,16 +21,17 @@ var (
 
 	// DefaultConv is used by the top level functions in this package. The callers
 	// will discard any errors.
-	DefaultConv Conv
+	DefaultConv Converter = Conv{}
 )
 
 var (
-	mathMaxInt  int64
-	mathMinInt  int64
-	mathMaxUint uint64
-	emptyTime   = time.Time{}
-	typeOfError = reflect.TypeOf((*error)(nil)).Elem()
-	typeOfTime  = reflect.TypeOf(emptyTime)
+	mathMaxInt     int64
+	mathMinInt     int64
+	mathMaxUint    uint64
+	emptyTime      = time.Time{}
+	typeOfError    = reflect.TypeOf((*error)(nil)).Elem()
+	typeOfTime     = reflect.TypeOf(emptyTime)
+	typeOfDuration = reflect.TypeOf(time.Duration(0))
 )
 
 func init() {
@@ -52,6 +51,14 @@ func init() {
 // Strings. As a special case it may convert to the time.Time structure. It is
 // the primary user facing interface for this library.
 type Converter interface {
+
+	// Map will perform conversion by inferring the key and element types from the
+	// given map and taking values from the given interface.
+	Map(into, from interface{}) error
+
+	// Slice will perform conversion by inferring the element type from the given
+	// slice and taking values from the given interface.
+	Slice(into, from interface{}) error
 
 	// Bool returns the bool representation from the given interface value.
 	// Returns the default value of false and an error on failure.

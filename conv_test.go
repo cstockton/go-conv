@@ -44,6 +44,7 @@ var (
 	summary         string
 	assertions      Assertions
 	assertionsIndex = make(AssertionsIndex)
+	toTheHeap       interface{}
 )
 
 const (

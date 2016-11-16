@@ -8,21 +8,21 @@ import (
 	"time"
 )
 
-func (c Conv) convStrToBool(v string) (bool, bool) {
+func (c Conv) convStrToBool(v string) (bool, error) {
 	// @TODO Need to find a clean way to expose the truth list to be modified by
 	// API to allow INTL.
 	if 1 > len(v) || len(v) > 5 {
-		return false, false
+		return false, fmt.Errorf("cannot parse type string with len %d as bool", len(v))
 	}
 
 	// @TODO lut
 	switch v {
 	case "1", "t", "T", "true", "True", "TRUE", "y", "Y", "yes", "Yes", "YES":
-		return true, true
+		return true, nil
 	case "0", "f", "F", "false", "False", "FALSE", "n", "N", "no", "No", "NO":
-		return false, true
+		return false, nil
 	}
-	return false, false
+	return false, fmt.Errorf("cannot parse %#v (type string) as bool", v)
 }
 
 func (c Conv) convNumToBool(k reflect.Kind, value reflect.Value) (bool, bool) {
@@ -50,10 +50,11 @@ func (c Conv) convNumToBool(k reflect.Kind, value reflect.Value) (bool, bool) {
 // Bool attempts to convert the given value to bool, returns the zero value
 // and an error on failure.
 func (c Conv) Bool(from interface{}) (bool, error) {
-	if T, ok := from.(bool); ok {
+	if T, ok := from.(string); ok {
+		return c.convStrToBool(T)
+	} else if T, ok := from.(bool); ok {
 		return T, nil
-	}
-	if c, ok := from.(interface {
+	} else if c, ok := from.(interface {
 		Bool() (bool, error)
 	}); ok {
 		return c.Bool()
@@ -63,9 +64,7 @@ func (c Conv) Bool(from interface{}) (bool, error) {
 	kind := value.Kind()
 	switch {
 	case reflect.String == kind:
-		if parsed, ok := c.convStrToBool(value.String()); ok {
-			return parsed, nil
-		}
+		return c.convStrToBool(value.String())
 	case isKindNumeric(kind):
 		if parsed, ok := c.convNumToBool(kind, value); ok {
 			return parsed, nil
@@ -91,22 +90,19 @@ func (c Conv) String(from interface{}) (string, error) {
 		return T, nil
 	} else if T, ok := from.([]byte); ok {
 		return string(T), nil
-	}
-
-	// @TODO This aligns with the API, but not with Go interfaces.
-	if c, ok := from.(interface {
+	} else if c, ok := from.(interface {
+		// @TODO This aligns with the API, but not with Go interfaces.
 		String() (string, error)
 	}); ok {
 		return c.String()
 	}
 
-	from = indirect(from)
 	switch T := from.(type) {
-	case []byte:
+	case *[]byte:
 		// @TODO Maybe validate the bytes are valid runes
-		return string(T), nil
-	case string:
-		return T, nil
+		return string(*T), nil
+	case *string:
+		return *T, nil
 	}
 	return fmt.Sprintf("%v", from), nil
 }

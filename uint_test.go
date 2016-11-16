@@ -112,6 +112,8 @@ func init() {
 		// from string int
 		assert(fmt.Sprintf("%d", i),
 			uint(i), uint8(i), uint16(i), uint32(i), uint64(i))
+		assert(testStringConverter(fmt.Sprintf("%d", i)),
+			uint(i), uint8(i), uint16(i), uint32(i), uint64(i))
 
 		// from string float form
 		assert(fmt.Sprintf("%d.0", i),
@@ -119,7 +121,7 @@ func init() {
 	}
 
 	assert(nil, experrs(`cannot convert <nil> (type <nil>) to `))
-	assert("foo", experrs(`cannot convert "foo" (type string) to `))
+	assert("foo", experrs(` "foo" (type string) `))
 	assert(struct{}{}, experrs(`cannot convert struct {}{} (type struct {}) to `))
 }
 
@@ -127,7 +129,11 @@ func TestUint(t *testing.T) {
 	var c Conv
 	t.Run("Uint", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Uint, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Uint(a.From)); err != nil {
+			res, err := c.Uint(a.From)
+			if res != Uint(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -136,7 +142,11 @@ func TestUint(t *testing.T) {
 	})
 	t.Run("Uint8", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Uint8, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Uint8(a.From)); err != nil {
+			res, err := c.Uint8(a.From)
+			if res != Uint8(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -145,7 +155,11 @@ func TestUint(t *testing.T) {
 	})
 	t.Run("Uint16", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Uint16, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Uint16(a.From)); err != nil {
+			res, err := c.Uint16(a.From)
+			if res != Uint16(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -154,7 +168,11 @@ func TestUint(t *testing.T) {
 	})
 	t.Run("Uint32", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Uint32, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Uint32(a.From)); err != nil {
+			res, err := c.Uint32(a.From)
+			if res != Uint32(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -163,7 +181,11 @@ func TestUint(t *testing.T) {
 	})
 	t.Run("Uint64", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Uint64, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Uint64(a.From)); err != nil {
+			res, err := c.Uint64(a.From)
+			if res != Uint64(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {

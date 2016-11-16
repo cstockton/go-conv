@@ -113,3 +113,46 @@ func Uint64(from interface{}) uint64 {
 	to, _ := DefaultConv.Uint64(from)
 	return to
 }
+
+// Slice will perform conversion by inferring the element type from the given
+// slice. The from element is traversed recursively and the behavior if the
+// value is mutated during iteration is undefined, though at worst an error
+// will be returned as this library will never panic.
+//
+// An error is returned if the below restrictions are not met:
+//
+//   - It must be a pointer to a slice, it does not have to be initialized
+//   - The element must be a T or *T of a type supported by this library
+//
+// Example:
+//
+//   var into []int64
+//   err := conv.Map(&into, []string{"12", "345", "6789"})
+//   // into -> []int64{12, 234, 6789}
+//
+// See examples for more usages.
+func Slice(into, from interface{}) error {
+	return DefaultConv.Slice(into, from)
+}
+
+// Map will perform conversion by inferring the key and element types from the
+// given map. The from element is traversed recursively and the behavior if
+// the value is mutated during iteration is undefined, though at worst an
+// error will be returned as this library will never panic.
+//
+// An error is returned if the below restrictions are not met:
+//
+//   - It must be a non-pointer, non-nil initialized map
+//   - Both the key and element T must be supported by this library
+//   - The key must be a value T, the element may be a T or *T
+//
+// Example:
+//
+//   into := make(map[string]int64)
+//   err := conv.Map(into, []string{"12", "345", "6789"})
+//   // into -> map[string]int64{"0": 12, "1", 234, "2", 6789}
+//
+// See examples for more usages.
+func Map(into, from interface{}) error {
+	return DefaultConv.Map(into, from)
+}

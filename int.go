@@ -1,31 +1,34 @@
 package conv
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"strconv"
 )
 
-func (c Conv) convStrToInt64(v string) (int64, bool) {
-	if parsed, perr := strconv.ParseInt(v, 10, 0); perr == nil {
-		return parsed, true
+func (c Conv) convStrToInt64(v string) (int64, error) {
+	if parsed, err := strconv.ParseInt(v, 10, 0); err == nil {
+		return parsed, nil
 	}
-	if parsed, perr := strconv.ParseFloat(v, 64); perr == nil {
-		return int64(parsed), true
+	if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+		return int64(parsed), nil
 	}
-	if parsed, perr := c.Bool(v); perr == nil {
+	if parsed, err := c.convStrToBool(v); err == nil {
 		if parsed {
-			return 1, true
+			return 1, nil
 		}
-		return 0, true
+		return 0, nil
 	}
-	return 0, false
+	return 0, fmt.Errorf("cannot parse %#v (type string) as integer", v)
 }
 
 // Int64 attempts to convert the given value to int64, returns the zero value
 // and an error on failure.
 func (c Conv) Int64(from interface{}) (int64, error) {
-	if T, ok := from.(int64); ok {
+	if T, ok := from.(string); ok {
+		return c.convStrToInt64(T)
+	} else if T, ok := from.(int64); ok {
 		return T, nil
 	}
 	if c, ok := from.(interface {
@@ -38,9 +41,7 @@ func (c Conv) Int64(from interface{}) (int64, error) {
 	kind := value.Kind()
 	switch {
 	case reflect.String == kind:
-		if parsed, ok := c.convStrToInt64(value.String()); ok {
-			return parsed, nil
-		}
+		return c.convStrToInt64(value.String())
 	case isKindInt(kind):
 		return value.Int(), nil
 	case isKindUint(kind):

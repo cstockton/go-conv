@@ -1,6 +1,7 @@
 package conv
 
 import (
+	"fmt"
 	"math"
 	"math/cmplx"
 	"reflect"
@@ -8,19 +9,19 @@ import (
 	"time"
 )
 
-func (c Conv) convStrToDuration(v string) (time.Duration, bool) {
+func (c Conv) convStrToDuration(v string) (time.Duration, error) {
 	if parsed, err := time.ParseDuration(v); err == nil {
-		return parsed, true
+		return parsed, nil
 	}
 	if parsed, err := strconv.ParseInt(v, 10, 0); err == nil {
 		// @TODO This feels more natural but maybe add a option to disable since
 		// it breaks Duration() -> String() -> Duration()
-		return time.Duration(parsed) * time.Second, true
+		return time.Duration(parsed) * time.Second, nil
 	}
 	if parsed, err := strconv.ParseFloat(v, 64); err == nil {
-		return time.Duration(1e9 * parsed), true
+		return time.Duration(1e9 * parsed), nil
 	}
-	return 0, false
+	return 0, fmt.Errorf("cannot parse %#v (type string) as time.Duration", v)
 }
 
 func (c Conv) convNumToDuration(
@@ -53,10 +54,11 @@ func (c Conv) convNumToDuration(
 // Duration attempts to convert the given value to time.Duration, returns the
 // zero value and an error on failure.
 func (c Conv) Duration(from interface{}) (time.Duration, error) {
-	if T, ok := from.(time.Duration); ok {
+	if T, ok := from.(string); ok {
+		return c.convStrToDuration(T)
+	} else if T, ok := from.(time.Duration); ok {
 		return T, nil
-	}
-	if c, ok := from.(interface {
+	} else if c, ok := from.(interface {
 		Duration() (time.Duration, error)
 	}); ok {
 		return c.Duration()
@@ -66,9 +68,7 @@ func (c Conv) Duration(from interface{}) (time.Duration, error) {
 	kind := value.Kind()
 	switch {
 	case reflect.String == kind:
-		if parsed, ok := c.convStrToDuration(value.String()); ok {
-			return parsed, nil
-		}
+		return c.convStrToDuration(value.String())
 	case isKindNumeric(kind):
 		if parsed, ok := c.convNumToDuration(kind, value); ok {
 			return parsed, nil

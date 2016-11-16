@@ -2,6 +2,8 @@ package conv_test
 
 import (
 	"fmt"
+	"log"
+	"sort"
 	"time"
 
 	conv "github.com/cstockton/go-conv"
@@ -137,6 +139,56 @@ func Example_numerics() {
 	// 0
 	// 12.34s
 	// 34h17m36s
+}
+
+func Example_slices() {
+
+	// Slice does not need initialized.
+	var into []int64
+
+	// You must pass a pointer to a slice.
+	err := conv.Slice(&into, []string{"123", "456", "6789"})
+	if err != nil {
+		log.Fatal("err:", err)
+	}
+
+	for _, v := range into {
+		fmt.Println("v:", v)
+	}
+
+	// Output:
+	// v: 123
+	// v: 456
+	// v: 6789
+}
+
+func Example_maps() {
+
+	// Map must be initialized
+	into := make(map[string]int64)
+
+	// No need to pass a pointer
+	err := conv.Map(into, []string{"123", "456", "6789"})
+	if err != nil {
+		log.Fatal("err:", err)
+	}
+
+	// This is just for testing determinism since keys are randomized.
+	var keys []string
+	for k := range into {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Print the keys
+	for _, k := range keys {
+		fmt.Println("k:", k, "v:", into[k])
+	}
+
+	// Output:
+	// k: 0 v: 123
+	// k: 1 v: 456
+	// k: 2 v: 6789
 }
 
 // In short, panics should not occur within this library under any circumstance.

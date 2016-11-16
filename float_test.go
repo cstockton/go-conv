@@ -82,6 +82,7 @@ func init() {
 
 		// from string int
 		assert(fmt.Sprintf("%#v", i), exp(i, float64(i)))
+		assert(testStringConverter(fmt.Sprintf("%#v", i)), exp(i, float64(i)))
 
 		// from string float form
 		assert(fmt.Sprintf("%#v", i), exp(i, float64(i)))
@@ -96,7 +97,11 @@ func TestFloat(t *testing.T) {
 	var c Conv
 	t.Run("Float32", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Float32, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Float32(a.From)); err != nil {
+			res, err := c.Float32(a.From)
+			if res != Float32(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -105,7 +110,11 @@ func TestFloat(t *testing.T) {
 	})
 	t.Run("Float64", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Float64, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Float64(a.From)); err != nil {
+			res, err := c.Float64(a.From)
+			if res != Float64(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {

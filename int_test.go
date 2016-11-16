@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -11,6 +12,54 @@ type testInt64Converter int64
 
 func (t testInt64Converter) Int64() (int64, error) {
 	return int64(t) + 5, nil
+}
+
+var strToInt64 = [42]struct {
+	from string
+	to   int64
+}{
+	{"0", 0},
+	{"-0", 0},
+	{"1", 1},
+	{"-1", -1},
+	{"12", 12},
+	{"-12", -12},
+	{"123", 123},
+	{"-123", -123},
+	{"1234", 1234},
+	{"-1234", -1234},
+	{"12345", 12345},
+	{"-12345", -12345},
+	{"123456", 123456},
+	{"-123456", -123456},
+	{"1234567", 1234567},
+	{"-1234567", -1234567},
+	{"12345678", 12345678},
+	{"-12345678", -12345678},
+	{"123456789", 123456789},
+	{"-123456789", -123456789},
+	{"1234567890", 1234567890},
+	{"-1234567890", -1234567890},
+	{"12345678901", 12345678901},
+	{"-12345678901", -12345678901},
+	{"123456789012", 123456789012},
+	{"-123456789012", -123456789012},
+	{"1234567890123", 1234567890123},
+	{"-1234567890123", -1234567890123},
+	{"12345678901234", 12345678901234},
+	{"-12345678901234", -12345678901234},
+	{"123456789012345", 123456789012345},
+	{"-123456789012345", -123456789012345},
+	{"1234567890123456", 1234567890123456},
+	{"-1234567890123456", -1234567890123456},
+	{"12345678901234567", 12345678901234567},
+	{"-12345678901234567", -12345678901234567},
+	{"123456789012345678", 123456789012345678},
+	{"-123456789012345678", -123456789012345678},
+	{"1234567890123456789", 1234567890123456789},
+	{"-1234567890123456789", -1234567890123456789},
+	{"9223372036854775807", 1<<63 - 1},
+	{"-9223372036854775808", -1 << 63},
 }
 
 func init() {
@@ -120,13 +169,15 @@ func init() {
 		// from string int
 		assert(fmt.Sprintf("%d", i),
 			int(i), int8(i), int16(i), int32(i), int64(i))
+		assert(testStringConverter(fmt.Sprintf("%d", i)),
+			int(i), int8(i), int16(i), int32(i), int64(i))
 
 		// from string float form
 		assert(fmt.Sprintf("%d.0", i),
 			int(i), int8(i), int16(i), int32(i), int64(i))
 	}
 
-	assert("foo", experrs(`cannot convert "foo" (type string) to `))
+	assert("foo", experrs(`"foo" (type string) `))
 	assert(struct{}{}, experrs(`cannot convert struct {}{} (type struct {}) to `))
 	assert(nil, experrs(`cannot convert <nil> (type <nil>) to `))
 }
@@ -135,7 +186,11 @@ func TestInt(t *testing.T) {
 	var c Conv
 	t.Run("Int", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Int, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Int(a.From)); err != nil {
+			res, err := c.Int(a.From)
+			if res != Int(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -144,7 +199,11 @@ func TestInt(t *testing.T) {
 	})
 	t.Run("Int8", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Int8, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Int8(a.From)); err != nil {
+			res, err := c.Int8(a.From)
+			if res != Int8(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -153,7 +212,11 @@ func TestInt(t *testing.T) {
 	})
 	t.Run("Int16", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Int16, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Int16(a.From)); err != nil {
+			res, err := c.Int16(a.From)
+			if res != Int16(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -162,7 +225,11 @@ func TestInt(t *testing.T) {
 	})
 	t.Run("Int32", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Int32, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Int32(a.From)); err != nil {
+			res, err := c.Int32(a.From)
+			if res != Int32(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
@@ -171,11 +238,68 @@ func TestInt(t *testing.T) {
 	})
 	t.Run("Int64", func(t *testing.T) {
 		if n := assertions.EachOf(reflect.Int64, func(a *Assertion, e Expecter) {
-			if err := e.Expect(c.Int64(a.From)); err != nil {
+			res, err := c.Int64(a.From)
+			if res != Int64(a.From) {
+				t.Fatalf("result drift between func and Conv")
+			}
+			if err = e.Expect(res, err); err != nil {
 				t.Fatalf("%v:\n  %v", a.String(), err)
 			}
 		}); n < 1 {
 			t.Fatalf("no test coverage ran for Int64 conversions")
 		}
+	})
+}
+
+func BenchmarkInt(b *testing.B) {
+	var c Conv
+	b.Run("string to int64", func(b *testing.B) {
+		l := len(strToInt64)
+		b.Run("Conv", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				for z := 0; z < l; z++ {
+					v, err := c.Int64(strToInt64[z].from)
+					if err != nil {
+						b.Error(err)
+					}
+					if strToInt64[z].to != v {
+						b.Errorf("(%T) %[1]v != %v (%[2]T)", strToInt64[z].to, v)
+					}
+				}
+			}
+		})
+		b.Run("Stdlib", func(b *testing.B) {
+			parseInt := func(from interface{}) (int64, error) {
+				if T, ok := from.(string); ok {
+					return strconv.ParseInt(T, 10, 0)
+				}
+				b.Fatal("expected string")
+				return 0, nil
+			}
+			for i := 0; i < b.N; i++ {
+				for z := 0; z < l; z++ {
+					v, err := parseInt(strToInt64[z].from)
+					if err != nil {
+						b.Error(err)
+					}
+					if strToInt64[z].to != v {
+						b.Errorf("(%T) %[1]v != %v (%[2]T)", strToInt64[z].to, v)
+					}
+				}
+			}
+		})
+		b.Run("StdlibTyped", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				for z := 0; z < l; z++ {
+					v, err := strconv.ParseInt(strToInt64[z].from, 10, 0)
+					if err != nil {
+						b.Error(err)
+					}
+					if strToInt64[z].to != v {
+						b.Errorf("(%T) %[1]v != %v (%[2]T)", strToInt64[z].to, v)
+					}
+				}
+			}
+		})
 	})
 }

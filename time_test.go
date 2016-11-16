@@ -46,6 +46,7 @@ func init() {
 		assert("154.567", d234567)
 		assert("-154.567", -d234567)
 		assert("120", d2m)
+		assert(testStringConverter("120"), d2m)
 
 		// durations
 		assert(d234567, d234567)
@@ -95,9 +96,9 @@ func init() {
 
 		// errors
 		assert(nil, experr(dZero, `cannot convert <nil> (type <nil>) to time.Duration`))
-		assert("foo", experr(dZero, `cannot convert "foo" (type string) to time.Duration`))
+		assert("foo", experr(dZero, `cannot parse "foo" (type string) as time.Duration`))
 		assert("tooLong", experr(
-			dZero, `cannot convert "tooLong" (type string) to time.Duration`))
+			dZero, `cannot parse "tooLong" (type string) as time.Duration`))
 		assert(struct{}{}, experr(
 			dZero, `cannot convert struct {}{} (type struct {}) to `))
 		assert([]string{"1s"}, experr(
@@ -130,6 +131,8 @@ func init() {
 		}
 		for _, s := range fmts {
 			assert(s, TimeExp{Moment: t2006.Truncate(time.Minute), Truncate: time.Minute})
+			assert(testStringConverter(s), TimeExp{Moment: t2006.Truncate(time.Minute), Truncate: time.Minute})
+
 		}
 
 		// underlying
