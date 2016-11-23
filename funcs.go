@@ -1,6 +1,13 @@
 package conv
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
+
+func newConvErr(from interface{}, to string) error {
+	return fmt.Errorf("cannot convert %#v (type %[1]T) to %v", from, to)
+}
 
 // Bool will convert the given value to a bool, returns the default value of
 // false if a conversion can not be made.

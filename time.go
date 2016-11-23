@@ -9,6 +9,12 @@ import (
 	"time"
 )
 
+var (
+	emptyTime      = time.Time{}
+	typeOfTime     = reflect.TypeOf(emptyTime)
+	typeOfDuration = reflect.TypeOf(time.Duration(0))
+)
+
 func (c Conv) convStrToDuration(v string) (time.Duration, error) {
 	if parsed, err := time.ParseDuration(v); err == nil {
 		return parsed, nil

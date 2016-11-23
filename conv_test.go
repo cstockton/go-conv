@@ -15,6 +15,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	chkMathIntSize := mathIntSize
 	chkMathMaxInt := mathMaxInt
 	chkMathMinInt := mathMinInt
 	chkMathMaxUint := mathMaxUint
@@ -24,6 +25,9 @@ func TestMain(m *testing.M) {
 	res := m.Run()
 
 	// validate our max (u|)int sizes don't get written to on accident.
+	if chkMathIntSize != mathIntSize {
+		panic("chkEmptyTime != emptyTime")
+	}
 	if chkMathMaxInt != mathMaxInt {
 		panic("chkMathMaxInt != mathMaxInt")
 	}
@@ -383,4 +387,97 @@ func typename(value interface{}) (name string) {
 		name = parts[0]
 	}
 	return
+}
+
+type errHookConv struct {
+	c  Converter
+	fn func(from interface{}, err error) error
+}
+
+func (c errHookConv) Map(into, from interface{}) error {
+	return c.fn(from, c.c.Map(into, from))
+}
+
+func (c errHookConv) Slice(into, from interface{}) error {
+	return c.fn(from, c.c.Slice(into, from))
+}
+
+func (c errHookConv) Bool(from interface{}) (bool, error) {
+	res, err := c.c.Bool(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Duration(from interface{}) (time.Duration, error) {
+	res, err := c.c.Duration(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) String(from interface{}) (string, error) {
+	res, err := c.c.String(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Time(from interface{}) (time.Time, error) {
+	res, err := c.c.Time(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Float32(from interface{}) (float32, error) {
+	res, err := c.c.Float32(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Float64(from interface{}) (float64, error) {
+	res, err := c.c.Float64(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Int(from interface{}) (int, error) {
+	res, err := c.c.Int(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Int8(from interface{}) (int8, error) {
+	res, err := c.c.Int8(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Int16(from interface{}) (int16, error) {
+	res, err := c.c.Int16(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Int32(from interface{}) (int32, error) {
+	res, err := c.c.Int32(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Int64(from interface{}) (int64, error) {
+	res, err := c.c.Int64(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Uint(from interface{}) (uint, error) {
+	res, err := c.c.Uint(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Uint8(from interface{}) (uint8, error) {
+	res, err := c.c.Uint8(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Uint16(from interface{}) (uint16, error) {
+	res, err := c.c.Uint16(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Uint32(from interface{}) (uint32, error) {
+	res, err := c.c.Uint32(from)
+	return res, c.fn(from, err)
+}
+
+func (c errHookConv) Uint64(from interface{}) (uint64, error) {
+	res, err := c.c.Uint64(from)
+	return res, c.fn(from, err)
 }

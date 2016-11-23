@@ -7,6 +7,31 @@ import (
 	"strconv"
 )
 
+var (
+	mathMaxInt  int64
+	mathMinInt  int64
+	mathMaxUint uint64
+	mathIntSize = strconv.IntSize
+)
+
+func initIntSizes(size int) {
+	switch size {
+	case 64:
+		mathMaxInt = math.MaxInt64
+		mathMinInt = math.MinInt64
+		mathMaxUint = math.MaxUint64
+	case 32:
+		mathMaxInt = math.MaxInt32
+		mathMinInt = math.MinInt32
+		mathMaxUint = math.MaxUint32
+	}
+}
+
+func init() {
+	// this is so it can be unit tested.
+	initIntSizes(mathIntSize)
+}
+
 func (c Conv) convStrToInt64(v string) (int64, error) {
 	if parsed, err := strconv.ParseInt(v, 10, 0); err == nil {
 		return parsed, nil

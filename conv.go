@@ -1,21 +1,11 @@
 // Package conv provides conversions from various types of Go values.
 package conv
 
-import (
-	"fmt"
-	"math"
-	"reflect"
-	"strconv"
-	"time"
-)
+import "time"
 
 // Conv implements the Converter interface. It does not require initialization
 // or share state and is safe for use by multiple Goroutines.
 type Conv struct{}
-
-func newConvErr(from interface{}, to string) error {
-	return fmt.Errorf("cannot convert %#v (type %[1]T) to %v", from, to)
-}
 
 var (
 
@@ -23,29 +13,6 @@ var (
 	// will discard any errors.
 	DefaultConv Converter = Conv{}
 )
-
-var (
-	mathMaxInt     int64
-	mathMinInt     int64
-	mathMaxUint    uint64
-	emptyTime      = time.Time{}
-	typeOfError    = reflect.TypeOf((*error)(nil)).Elem()
-	typeOfTime     = reflect.TypeOf(emptyTime)
-	typeOfDuration = reflect.TypeOf(time.Duration(0))
-)
-
-func init() {
-	switch strconv.IntSize {
-	case 64:
-		mathMaxInt = math.MaxInt64
-		mathMinInt = math.MinInt64
-		mathMaxUint = math.MaxUint64
-	case 32:
-		mathMaxInt = math.MaxInt32
-		mathMinInt = math.MinInt32
-		mathMaxUint = math.MaxUint32
-	}
-}
 
 // Converter supports conversion to basic types, that is Boolean, Numeric and
 // Strings. As a special case it may convert to the time.Time structure. It is

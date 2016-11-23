@@ -14,7 +14,7 @@ func Example() {
 	// All top level conversion functions discard errors, returning the types zero
 	// value instead.
 	fmt.Println(conv.Time("bad time string")) // time.Time{}
-	fmt.Println(conv.Time("Monday, 02 Jan 2006 15:04:05 -0700"))
+	fmt.Println(conv.Time("Sat Mar 7 11:06:39 PST 2015"))
 
 	// Conversions are allowed as long as the underlying type is convertable, for
 	// example:
@@ -34,7 +34,7 @@ func Example() {
 
 	// Output:
 	// 0001-01-01 00:00:00 +0000 UTC
-	// 2006-01-02 15:04:05 -0700 MST
+	// 2015-03-07 11:06:39 +0000 PST
 	// 123
 	// 123
 	// Got 0 because of err: cannot convert "Foo" (type string) to int

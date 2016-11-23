@@ -1,6 +1,7 @@
 package conv
 
 import (
+	"fmt"
 	"math"
 	"math/cmplx"
 	"reflect"
@@ -177,4 +178,41 @@ func TestBool(t *testing.T) {
 			t.Fatal("expected failure")
 		}
 	})
+}
+
+func TestBounds(t *testing.T) {
+	defer initIntSizes(mathIntSize)
+
+	var c Conv
+	chk := func() {
+		chkMaxInt, err := c.Int(fmt.Sprintf("%v", math.MaxInt64))
+		if err != nil {
+			t.Error(err)
+		}
+		if int64(chkMaxInt) != mathMaxInt {
+			t.Errorf("chkMaxInt exp %v; got %v", chkMaxInt, mathMaxInt)
+		}
+
+		chkMinInt, err := c.Int(fmt.Sprintf("%v", math.MinInt64))
+		if err != nil {
+			t.Error(err)
+		}
+		if int64(chkMinInt) != mathMinInt {
+			t.Errorf("chkMaxInt exp %v; got %v", chkMinInt, mathMaxInt)
+		}
+
+		chkUint, err := c.Uint(fmt.Sprintf("%v", uint64(math.MaxUint64)))
+		if err != nil {
+			t.Error(err)
+		}
+		if uint64(chkUint) != mathMaxUint {
+			t.Errorf("chkMaxInt exp %v; got %v", chkMinInt, chkUint)
+		}
+	}
+
+	initIntSizes(32)
+	chk()
+
+	initIntSizes(64)
+	chk()
 }
