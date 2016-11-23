@@ -2,6 +2,7 @@
 
   [![Godoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/cstockton/go-conv)
   [![Go Report Card](https://goreportcard.com/badge/github.com/cstockton/go-conv)](https://goreportcard.com/report/github.com/cstockton/go-conv)
+  [![Travis](https://img.shields.io/travis/rust-lang/rust.svg)](https://travis-ci.org/cstockton/go-conv)
   [![Coverage Status](https://img.shields.io/codecov/c/github/cstockton/go-conv/master.svg)](https://codecov.io/github/cstockton/go-conv?branch=master)
 
   > Get:
