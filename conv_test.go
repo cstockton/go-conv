@@ -353,8 +353,9 @@ func TestReadmeGen(t *testing.T) {
 			t.Fatalf("bad formatting in example %v, had no output", example.Name)
 		}
 
+		// the header example has no summary
 		summary := rewrap(&buf, "\n  ", example.Doc)
-		if 0 == len(summary) {
+		if 0 == len(summary) && title != "Package" {
 			t.Fatalf("bad formatting in example %v, had no summary", example.Name)
 		}
 
@@ -368,8 +369,11 @@ func TestReadmeGen(t *testing.T) {
 	}
 
 	sort.Sort(readmeExamples)
+	sg.FuncMap["HeaderExample"] = func() ReadmeExample {
+		return readmeExamples[0]
+	}
 	sg.FuncMap["Examples"] = func() []ReadmeExample {
-		return readmeExamples
+		return readmeExamples[1:]
 	}
 
 	if err := sg.Run(); err != nil {

@@ -14,18 +14,26 @@
   > Example:
   > ```Go
   > // Basic types
-  > b := conv.Bool("YES")
-  >   b -> true
+  > fmt.Printf("Basics:\n  `TRUE` -> %#v\n  `1.23` -> %#v\n  `1m2s` -> %#v\n\n",
+  > 	conv.Bool("YES"), conv.Int64("12.3"), conv.Duration("1m2s"))
+  > 
+  > // Slice and map support
+  > from := []string{"1.2", "34.5", "-678.9"}
+  > var into []float64
+  > conv.Slice(&into, from) // type inferred from the element of `into`
+  > fmt.Printf("Slice:\n  %#v\n    -> %#v\n\n", from, into
+  > ```
   >
-  > // Slices
-  > var into []int64
-  > err := conv.Slice(&into, []string{"12", "345", "6789"})
-  >   into -> []int64{12, 234, 6789}
-  >
-  > // Maps
-  > into := make(map[string]int64)
-  > err := conv.Map(into, []string{"12", "345", "6789"})
-  >   into -> map[string]int64{"0": 12, "1", 234, "2", 6789}
+  > Output:
+  > ```Go
+  > Basics:
+  >   `TRUE` -> true
+  >   `1.23` -> 12
+  >   `1m2s` -> 62000000000
+  > 
+  > Slice:
+  >   []string{"1.2", "34.5", "-678.9"}
+  >     -> []float64{1.2, 34.5, -678.9}
   > ```
 
 
@@ -34,7 +42,7 @@
 Package conv provides fast and intuitive conversions across Go types. This library uses reflection to be robust but will bypass it for common conversions, for example string conversion to any type will never use reflection. In most cases this library is as fast or faster then the standard library for similar operations due to various aggressive (but safe) optimizations. The only external dependency ([iter](https://github.com/cstockton/go-iter)) has 100% test coverage and is maintained by me. It is used to walk the values given for map and slice conversion and will **never panic**. All methods and functions are **safe for concurrent use by multiple Goroutines**, with a single exception that Slice and Map conversion under certain circumstances may produce undefined results if they are mutated while being traversed.
 
 
-### Package
+### Overview
 
   All methods and functions accept any type of value for conversion, if unable
   to find a reasonable conversion path they will return the target types zero

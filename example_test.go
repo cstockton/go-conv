@@ -9,6 +9,29 @@ import (
 	conv "github.com/cstockton/go-conv"
 )
 
+func Example() {
+
+	// Basic types
+	fmt.Printf("Basics:\n  `TRUE` -> %#v\n  `1.23` -> %#v\n  `1m2s` -> %#v\n\n",
+		conv.Bool("YES"), conv.Int64("12.3"), conv.Duration("1m2s"))
+
+	// Slice and map support
+	from := []string{"1.2", "34.5", "-678.9"}
+	var into []float64
+	conv.Slice(&into, from) // type inferred from the element of `into`
+	fmt.Printf("Slice:\n  %#v\n    -> %#v\n\n", from, into)
+
+	// Output:
+	// Basics:
+	//   `TRUE` -> true
+	//   `1.23` -> 12
+	//   `1m2s` -> 62000000000
+	//
+	// Slice:
+	//   []string{"1.2", "34.5", "-678.9"}
+	//     -> []float64{1.2, 34.5, -678.9}
+}
+
 // All methods and functions accept any type of value for conversion, if unable
 // to find a reasonable conversion path they will return the target types zero
 // value. The Conv struct will also report an error on failure, while all the
@@ -16,7 +39,7 @@ import (
 // single value for cases that you wish to leverage zero values. These functions
 // are powered by the "DefaultConverter" variable so you may replace it with
 // your own Converter or a Conv struct to adjust behavior.
-func Example() {
+func Example_overview() {
 
 	// All top level conversion functions discard errors, returning the types zero
 	// value instead.
