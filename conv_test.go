@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"math/cmplx"
 	"os"
 	"path"
 	"reflect"
@@ -12,6 +13,33 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
+
+var (
+	summary         string
+	assertions      Assertions
+	assertionsIndex = make(AssertionsIndex)
+	toTheHeap       interface{}
+)
+
+const (
+	TypeKind reflect.Kind = reflect.UnsafePointer + iota
+	DurationKind
+	TimeKind
+	SliceMask reflect.Kind = (1 << 8)
+	MapMask                = (1 << 16)
+	ChanMask               = (1 << 24)
+)
+
+var (
+	nilValues = []interface{}{
+		(*interface{})(nil), (**interface{})(nil), (***interface{})(nil),
+		(func())(nil), (*func())(nil), (**func())(nil), (***func())(nil),
+		(chan int)(nil), (*chan int)(nil), (**chan int)(nil), (***chan int)(nil),
+		([]int)(nil), (*[]int)(nil), (**[]int)(nil), (***[]int)(nil),
+		(map[int]int)(nil), (*map[int]int)(nil), (**map[int]int)(nil),
+		(***map[int]int)(nil),
+	}
 )
 
 func TestMain(m *testing.M) {
@@ -44,21 +72,211 @@ func TestMain(m *testing.M) {
 	os.Exit(res)
 }
 
-var (
-	summary         string
-	assertions      Assertions
-	assertionsIndex = make(AssertionsIndex)
-	toTheHeap       interface{}
-)
+func TestString(t *testing.T) {
+	var c Conv
+	t.Run("String", func(t *testing.T) {
+		if n := assertions.EachOf(reflect.String, func(a *Assertion, e Expecter) {
+			if err := e.Expect(c.String(a.From)); err != nil {
+				t.Fatalf("%v:\n  %v", a.String(), err)
+			}
+		}); n < 1 {
+			t.Fatalf("no test coverage ran for String conversions")
+		}
+	})
+}
 
-const (
-	TypeKind reflect.Kind = reflect.UnsafePointer + iota
-	DurationKind
-	TimeKind
-	SliceMask reflect.Kind = (1 << 8)
-	MapMask                = (1 << 16)
-	ChanMask               = (1 << 24)
-)
+func TestBool(t *testing.T) {
+	var c Conv
+	t.Run("Bool", func(t *testing.T) {
+		if n := assertions.EachOf(reflect.Bool, func(a *Assertion, e Expecter) {
+			if err := e.Expect(c.Bool(a.From)); err != nil {
+				t.Fatalf("%v:\n  %v", a.String(), err)
+			}
+		}); n < 1 {
+			t.Fatalf("no test coverage ran for Bool conversions")
+		}
+	})
+	t.Run("convNumToBool", func(t *testing.T) {
+		var val reflect.Value
+		if got, ok := c.convNumToBool(0, val); ok || got {
+			t.Fatal("expected failure")
+		}
+	})
+}
+
+func TestBounds(t *testing.T) {
+	defer initIntSizes(mathIntSize)
+
+	var c Conv
+	chk := func() {
+		chkMaxInt, err := c.Int(fmt.Sprintf("%v", math.MaxInt64))
+		if err != nil {
+			t.Error(err)
+		}
+		if int64(chkMaxInt) != mathMaxInt {
+			t.Errorf("chkMaxInt exp %v; got %v", chkMaxInt, mathMaxInt)
+		}
+
+		chkMinInt, err := c.Int(fmt.Sprintf("%v", math.MinInt64))
+		if err != nil {
+			t.Error(err)
+		}
+		if int64(chkMinInt) != mathMinInt {
+			t.Errorf("chkMaxInt exp %v; got %v", chkMinInt, mathMaxInt)
+		}
+
+		chkUint, err := c.Uint(fmt.Sprintf("%v", uint64(math.MaxUint64)))
+		if err != nil {
+			t.Error(err)
+		}
+		if uint64(chkUint) != mathMaxUint {
+			t.Errorf("chkMaxInt exp %v; got %v", chkMinInt, chkUint)
+		}
+	}
+
+	initIntSizes(32)
+	chk()
+
+	initIntSizes(64)
+	chk()
+}
+
+func TestIndirect(t *testing.T) {
+	type testIndirectCircular *testIndirectCircular
+	teq := func(t testing.TB, exp, got interface{}) {
+		if !reflect.DeepEqual(exp, got) {
+			t.Errorf("DeepEqual failed:\n  exp: %#v\n  got: %#v", exp, got)
+		}
+	}
+
+	t.Run("Basic", func(t *testing.T) {
+		int64v := int64(123)
+		int64vp := &int64v
+		int64vpp := &int64vp
+		int64vppp := &int64vpp
+		int64vpppp := &int64vppp
+		teq(t, indirect(int64v), int64v)
+		teq(t, indirect(int64vp), int64v)
+		teq(t, indirect(int64vpp), int64v)
+		teq(t, indirect(int64vppp), int64v)
+		teq(t, indirect(int64vpppp), int64v)
+	})
+	t.Run("Nils", func(t *testing.T) {
+		for _, n := range nilValues {
+			indirect(n)
+		}
+	})
+	t.Run("Circular", func(t *testing.T) {
+		var circular testIndirectCircular
+		circular = &circular
+		teq(t, indirect(circular), circular)
+	})
+}
+
+func TestRecoverFn(t *testing.T) {
+	t.Run("CallsFunc", func(t *testing.T) {
+		var called bool
+
+		err := recoverFn(func() error {
+			called = true
+			return nil
+		})
+		if err != nil {
+			t.Error("expected no error in recoverFn()")
+		}
+		if !called {
+			t.Error("Expected recoverFn() to call func")
+		}
+	})
+	t.Run("PropagatesError", func(t *testing.T) {
+		err := fmt.Errorf("expect this error")
+		rerr := recoverFn(func() error {
+			return err
+		})
+		if err != rerr {
+			t.Error("expected recoverFn() to propagate")
+		}
+	})
+	t.Run("PropagatesPanicError", func(t *testing.T) {
+		err := fmt.Errorf("expect this error")
+		rerr := recoverFn(func() error {
+			panic(err)
+		})
+		if err != rerr {
+			t.Error("Expected recoverFn() to propagate")
+		}
+	})
+	t.Run("PropagatesRuntimeError", func(t *testing.T) {
+		err := recoverFn(func() error {
+			sl := []int{}
+			_ = sl[0]
+			return nil
+		})
+		if err == nil {
+			t.Error("expected runtime error to propagate")
+		}
+		if _, ok := err.(runtime.Error); !ok {
+			t.Error("expected runtime error to retain type type")
+		}
+	})
+	t.Run("PropagatesString", func(t *testing.T) {
+		exp := "panic: string type panic"
+		rerr := recoverFn(func() error {
+			panic("string type panic")
+		})
+		if exp != rerr.Error() {
+			t.Errorf("expected recoverFn() to return %v, got: %v", exp, rerr)
+		}
+	})
+}
+
+func TestKind(t *testing.T) {
+	var (
+		intKinds = []reflect.Kind{
+			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64}
+		uintKinds = []reflect.Kind{
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64}
+		floatKinds   = []reflect.Kind{reflect.Float32, reflect.Float64}
+		complexKinds = []reflect.Kind{reflect.Complex64, reflect.Complex128}
+		lengthKinds  = []reflect.Kind{
+			reflect.Array, reflect.Chan, reflect.Map, reflect.Slice, reflect.String}
+		nilKinds = []reflect.Kind{
+			reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Slice,
+			reflect.Ptr}
+	)
+	type kindFunc func(k reflect.Kind) bool
+	type testKind struct {
+		exp   bool
+		kinds []reflect.Kind
+		f     []kindFunc
+	}
+	tnew := func(exp bool, k []reflect.Kind, f ...kindFunc) testKind {
+		return testKind{exp, k, f}
+	}
+	tests := []testKind{
+		tnew(true, intKinds, isKindInt, isKindNumeric),
+		tnew(false, intKinds, isKindComplex, isKindFloat, isKindUint, isKindLength, isKindNil),
+		tnew(true, uintKinds, isKindNumeric, isKindUint),
+		tnew(false, uintKinds, isKindComplex, isKindFloat, isKindInt, isKindLength, isKindNil),
+		tnew(true, floatKinds, isKindFloat, isKindNumeric),
+		tnew(false, floatKinds, isKindComplex, isKindInt, isKindUint, isKindLength, isKindNil),
+		tnew(true, complexKinds, isKindComplex, isKindNumeric),
+		tnew(false, complexKinds, isKindFloat, isKindInt, isKindUint, isKindLength, isKindNil),
+		tnew(true, lengthKinds, isKindLength),
+		tnew(true, nilKinds, isKindNil),
+	}
+	for _, tc := range tests {
+		for _, f := range tc.f {
+			t.Run(fmt.Sprintf("%v", tc.kinds[0]), func(t *testing.T) {
+				for _, kind := range tc.kinds {
+					if got := f(kind); got != tc.exp {
+						t.Errorf("%#v(%v)\nexp: %v\ngot: %v", f, kind, tc.exp, got)
+					}
+				}
+			})
+		}
+	}
+}
 
 var refKindNames = map[reflect.Kind]string{
 	DurationKind: "time.Duration",
@@ -480,4 +698,143 @@ func (c errHookConv) Uint32(from interface{}) (uint32, error) {
 func (c errHookConv) Uint64(from interface{}) (uint64, error) {
 	res, err := c.c.Uint64(from)
 	return res, c.fn(from, err)
+}
+
+type testBoolConverter bool
+
+func (t testBoolConverter) Bool() (bool, error) {
+	return !bool(t), nil
+}
+
+type testStringConverter string
+
+func (t testStringConverter) String() (string, error) {
+	return string(t) + "Tested", nil
+}
+
+func init() {
+
+	// bools
+	{
+
+		// strings: truthy
+		trueStrings := []string{
+			"1", "t", "T", "true", "True", "TRUE", "y", "Y", "yes", "Yes", "YES"}
+		for _, truthy := range trueStrings {
+			assert(truthy, true)
+			assert(testStringConverter(truthy), true)
+		}
+
+		// strings: falsy
+		falseStrings := []string{
+			"0", "f", "F", "false", "False", "FALSE", "n", "N", "no", "No", "NO"}
+		for _, falsy := range falseStrings {
+			assert(falsy, false)
+			assert(testStringConverter(falsy), false)
+		}
+
+		// numerics: true
+		for _, i := range []int{-1, 1} {
+			assert(int(i), true)
+			assert(int8(i), true)
+			assert(int16(i), true)
+			assert(int32(i), true)
+			assert(int64(i), true)
+			assert(uint(i), true)
+			assert(uint8(i), true)
+			assert(uint16(i), true)
+			assert(uint32(i), true)
+			assert(uint64(i), true)
+			assert(float32(i), true)
+			assert(float64(i), true)
+			assert(complex(float32(i), 0), true)
+			assert(complex(float64(i), 0), true)
+		}
+
+		// int/uint: false
+		assert(int(0), false)
+		assert(int8(0), false)
+		assert(int16(0), false)
+		assert(int32(0), false)
+		assert(int64(0), false)
+		assert(uint(0), false)
+		assert(uint8(0), false)
+		assert(uint16(0), false)
+		assert(uint32(0), false)
+		assert(uint64(0), false)
+
+		// float: NaN and 0 are false.
+		assert(float32(math.NaN()), false)
+		assert(math.NaN(), false)
+		assert(float32(0), false)
+		assert(float64(0), false)
+
+		// complex: NaN and 0 are false.
+		assert(complex64(cmplx.NaN()), false)
+		assert(cmplx.NaN(), false)
+		assert(complex(float32(0), 0), false)
+		assert(complex(float64(0), 0), false)
+
+		// time
+		assert(time.Time{}, false)
+		assert(time.Now(), true)
+
+		// bool
+		assert(false, false)
+		assert(true, true)
+
+		// underlying bool
+		type ulyBool bool
+		assert(ulyBool(false), false)
+		assert(ulyBool(true), true)
+
+		// implements bool converter
+		assert(testBoolConverter(false), true)
+		assert(testBoolConverter(true), false)
+
+		// test length kinds
+		assert([]string{"one", "two"}, true)
+		assert(map[int]string{1: "one", 2: "two"}, true)
+		assert([]string{}, false)
+		assert([]string(nil), false)
+
+		// errors
+		assert(nil, experr(false, `cannot convert <nil> (type <nil>) to bool`))
+		assert("foo", experr(false, `cannot parse "foo" (type string) as bool`))
+		assert("tooLong", experr(
+			false, `cannot parse type string with len 7 as bool`))
+		assert(struct{}{}, experr(
+			false, `cannot convert struct {}{} (type struct {}) to `))
+	}
+
+	// strings
+	{
+
+		// basic
+		assert(`hello`, `hello`)
+		assert(``, ``)
+		assert([]byte(`hello`), `hello`)
+		assert([]byte(``), ``)
+
+		// ptr indirection
+		assert(new(string), ``)
+		assert(new([]byte), ``)
+
+		// underlying string
+		type ulyString string
+		assert(ulyString(`hello`), `hello`)
+		assert(ulyString(``), ``)
+
+		// implements string converter
+		assert(testStringConverter(`hello`), `helloTested`)
+		assert(testStringConverter(`hello`), `helloTested`)
+
+		// errors
+		assert(nil, experr(false, `cannot convert <nil> (type <nil>) to bool`))
+		assert("foo", experr(false, `cannot parse "foo" (type string) as bool`))
+		assert("tooLong", experr(
+			false, `cannot parse type string with len 7 as bool`))
+		assert(struct{}{}, experr(
+			false, `cannot convert struct {}{} (type struct {}) to `))
+	}
 }
