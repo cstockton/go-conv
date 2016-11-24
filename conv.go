@@ -1,4 +1,4 @@
-// Package conv provides conversions from various types of Go values.
+// Package conv provides fast and intuitive conversions across Go types.
 package conv
 
 import (

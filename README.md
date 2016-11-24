@@ -31,7 +31,7 @@
 
 ## Intro
 
-This library attempts to make fast and intuitive conversions across Go types safely. This library uses reflection to be robust but will bypass it for common conversions, for example string conversion to any type will never use reflection. In most cases this library is as fast or faster then the standard library for similar operations due to various aggressive (but safe) optimizations. The only external dependency ([iter](https://github.com/cstockton/go-iter)) has 100% test coverage and is maintained by me. It is used to walk the values given for map and slice conversion and will **never panic**. All methods and functions are **safe for concurrent use by multiple Goroutines**, with a single exception that Slice and Map conversion under certain circumstances may produce undefined results if they are mutated while being traversed.
+Package conv provides fast and intuitive conversions across Go types. This library uses reflection to be robust but will bypass it for common conversions, for example string conversion to any type will never use reflection. In most cases this library is as fast or faster then the standard library for similar operations due to various aggressive (but safe) optimizations. The only external dependency ([iter](https://github.com/cstockton/go-iter)) has 100% test coverage and is maintained by me. It is used to walk the values given for map and slice conversion and will **never panic**. All methods and functions are **safe for concurrent use by multiple Goroutines**, with a single exception that Slice and Map conversion under certain circumstances may produce undefined results if they are mutated while being traversed.
 
 
 ### Package
