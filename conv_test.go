@@ -1,17 +1,26 @@
 package conv
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
+	"go/doc"
+	"go/format"
+	"go/parser"
+	"go/token"
+	"io"
+	"io/ioutil"
 	"math"
 	"math/cmplx"
 	"os"
 	"path"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 )
 
@@ -276,6 +285,214 @@ func TestKind(t *testing.T) {
 			})
 		}
 	}
+}
+
+type ReadmeExample struct {
+	Example *doc.Example
+	Title   string
+	Summary string
+	Code    string
+	Output  string
+}
+
+type ReadmeExamples []ReadmeExample
+
+func (r ReadmeExamples) Len() int           { return len(r) }
+func (r ReadmeExamples) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r ReadmeExamples) Less(i, j int) bool { return r[i].Example.Order < r[j].Example.Order }
+
+func TestReadmeGen(t *testing.T) {
+	rewrap := func(buf *bytes.Buffer, with, s string) string {
+		buf.Reset()
+		for i := 1; i < len(s); i++ {
+			if s[i-1] == 0xA {
+				if s[i] == 0x9 {
+					i++
+				}
+				buf.WriteString(with)
+				continue
+			}
+			buf.WriteByte(s[i-1])
+		}
+		return buf.String()
+	}
+
+	sg := NewSrcGen("README.md")
+	fset := token.NewFileSet()
+	astFile, err := parser.ParseFile(fset, "example_test.go", nil, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	examples := doc.Examples(astFile)
+	readmeExamples := make(ReadmeExamples, len(examples))
+
+	for i, example := range examples {
+		buf.Reset()
+		format.Node(&buf, fset, example.Play)
+
+		play := buf.String()
+		idx := strings.Index(play, "func main() {") + 16
+		if idx == -1 {
+			t.Fatalf("bad formatting in example %v, could not find main() func", example.Name)
+		}
+
+		title := strings.Title(strings.TrimLeft(example.Name, "_"))
+		if 0 == len(title) {
+			title = "Package"
+		}
+
+		code := rewrap(&buf, "\n  > ", play[idx:len(play)-4])
+		if 0 == len(code) {
+			t.Fatalf("bad formatting in example %v, had no code", example.Name)
+		}
+
+		output := rewrap(&buf, "\n  > ", example.Output)
+		if 0 == len(output) {
+			t.Fatalf("bad formatting in example %v, had no output", example.Name)
+		}
+
+		summary := rewrap(&buf, "\n  ", example.Doc)
+		if 0 == len(summary) {
+			t.Fatalf("bad formatting in example %v, had no summary", example.Name)
+		}
+
+		readmeExamples[i] = ReadmeExample{
+			Example: example,
+			Title:   title,
+			Summary: summary,
+			Code:    code,
+			Output:  output,
+		}
+	}
+
+	sort.Sort(readmeExamples)
+	sg.FuncMap["Examples"] = func() []ReadmeExample {
+		return readmeExamples
+	}
+
+	if err := sg.Run(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type SrcGen struct {
+	t           *testing.T
+	Disabled    bool
+	Data        interface{}
+	FuncMap     template.FuncMap
+	Name        string
+	SrcPath     string
+	SrcBytes    []byte
+	TplPath     string
+	TplBytes    []byte // Actual template bytes
+	TplGenBytes []byte // Bytes produced from executed template
+}
+
+func NewSrcGen(name string) *SrcGen {
+	funcMap := make(template.FuncMap)
+	funcMap["args"] = func(s ...interface{}) interface{} {
+		return s
+	}
+	funcMap["TrimSpace"] = strings.TrimSpace
+	return &SrcGen{Name: "README.md", FuncMap: funcMap}
+}
+
+func (g *SrcGen) Run() error {
+	if g.Disabled {
+		return fmt.Errorf(`error: run failed because Disabled field is set for "%s"`, g.Name)
+	}
+	firstErr := func(funcs ...func() error) (err error) {
+		for _, f := range funcs {
+			err = f()
+			if err != nil {
+				return
+			}
+		}
+		return
+	}
+	return firstErr(g.Check, g.Load, g.Generate, g.Format, g.Commit)
+}
+
+func (g *SrcGen) Check() error {
+	g.Name = strings.TrimSpace(g.Name)
+	g.TplPath = strings.TrimSpace(g.TplPath)
+	g.SrcPath = strings.TrimSpace(g.SrcPath)
+	if len(g.Name) == 0 {
+		return errors.New("error: check for Name field failed because it was empty")
+	}
+	if len(g.TplPath) == 0 {
+		g.TplPath = fmt.Sprintf(`testdata/%s.tpl`, g.Name)
+	}
+	if len(g.SrcPath) == 0 {
+		g.SrcPath = fmt.Sprintf(`%s`, g.Name)
+	}
+	return nil
+}
+
+func (g *SrcGen) Load() error {
+	var err error
+	if g.TplBytes, err = ioutil.ReadFile(g.TplPath); err != nil {
+		return fmt.Errorf(`error: load io error "%s" reading TplPath "%s"`, err, g.TplPath)
+	}
+	if g.SrcBytes, err = ioutil.ReadFile(g.SrcPath); err != nil {
+		return fmt.Errorf(`error: load io error "%s" reading SrcPath "%s"`, err, g.SrcPath)
+	}
+	return nil
+}
+
+func (g *SrcGen) Generate() error {
+	tpl, err := template.New(g.Name).Funcs(g.FuncMap).Parse(string(g.TplBytes))
+	if err != nil {
+		return fmt.Errorf(`error: generate error "%s" parsing TplPath "%s"`, err, g.TplPath)
+	}
+
+	var buf bytes.Buffer
+	if err = tpl.Execute(&buf, g.Data); err != nil {
+		return fmt.Errorf(`error: generate error "%s" executing TplPath "%s"`, err, g.TplPath)
+	}
+	g.TplGenBytes = buf.Bytes()
+	return nil
+}
+
+func (g *SrcGen) Format() error {
+
+	// Only run gofmt for .go source code.
+	if !strings.HasSuffix(g.SrcPath, ".go") {
+		return nil
+	}
+
+	fmtBytes, err := format.Source(g.TplGenBytes)
+	if err != nil {
+		return fmt.Errorf(`error: format error "%s" executing TplPath "%s"`, err, g.TplPath)
+	}
+	g.TplGenBytes = fmtBytes
+	return err
+}
+
+func (g *SrcGen) IsStale() bool {
+	return !bytes.Equal(g.SrcBytes, g.TplGenBytes)
+}
+
+func (g *SrcGen) Dump(w io.Writer) string {
+	sep := strings.Repeat("-", 80)
+	fmt.Fprintf(w, "%[1]s\n  TplBytes:\n%[1]s\n%s\n%[1]s\n", sep, g.TplBytes)
+	fmt.Fprintf(w, "  SrcBytes:\n%[1]s\n%s\n%[1]s\n", sep, g.SrcBytes)
+	fmt.Fprintf(w, "  TplGenBytes (IsStale: %v):\n%s\n%[3]s\n%[2]s\n",
+		g.IsStale(), sep, g.TplGenBytes)
+	return g.Name
+}
+
+func (g *SrcGen) String() string {
+	return g.Name
+}
+
+func (g *SrcGen) Commit() error {
+	if !g.IsStale() {
+		return nil
+	}
+	return ioutil.WriteFile(g.SrcPath, g.TplGenBytes, 0644)
 }
 
 var refKindNames = map[reflect.Kind]string{

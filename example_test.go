@@ -9,6 +9,13 @@ import (
 	conv "github.com/cstockton/go-conv"
 )
 
+// All methods and functions accept any type of value for conversion, if unable
+// to find a reasonable conversion path they will return the target types zero
+// value. The Conv struct will also report an error on failure, while all the
+// top level functions (conv.Bool(...), conv.Time(...), etc) will only return a
+// single value for cases that you wish to leverage zero values. These functions
+// are powered by the "DefaultConverter" variable so you may replace it with
+// your own Converter or a Conv struct to adjust behavior.
 func Example() {
 
 	// All top level conversion functions discard errors, returning the types zero
@@ -29,8 +36,9 @@ func Example() {
 	// safe for use by multiple Go routines and needs no initialization.
 	var c conv.Conv
 	i, err := c.Int(`Foo`)
-	fmt.Printf("Got %v because of err: %v", i, err)
+
 	// Got 0 because of err: cannot convert "Foo" (type string) to int
+	fmt.Printf("Got %v because of err: %v", i, err)
 
 	// Output:
 	// 0001-01-01 00:00:00 +0000 UTC
@@ -63,6 +71,10 @@ func Example_strings() {
 	// {Foo}
 }
 
+// Bool Conversions supports all the paths provided by the standard libraries
+// strconv.ParseBool when converting from a string, all other conversions are
+// simply true when not the types zero value. As a special case zero length map
+// and slice types are also false, even if initialized.
 func Example_bools() {
 
 	// Bool conversion from other bool values will be returned without
@@ -96,20 +108,8 @@ func Example_bools() {
 	// false
 }
 
-// Duration conversion from other time.Duration values will be returned without modification.
-func Example_durations() {
-	fmt.Println(conv.Duration(time.Duration(time.Second))) // 1s
-	fmt.Println(conv.Duration("1h30m"))                    // 1h30m0s
-	fmt.Println(conv.Duration("12.15"))                    // 12.15s
-
-	// Output:
-	// 1s
-	// 1h30m0s
-	// 12.15s
-}
-
 // Numeric conversion from other numeric values of an identical type will be
-// returned without modification. Numeric conversions deviate slighty from Go
+// returned without modification. Numeric conversions deviate slightly from Go
 // when dealing with under/over flow. When performing a conversion operation
 // that would overflow, we instead assign the maximum value for the target type.
 // Similarly, conversions that would underflow are assigned the minimun value
@@ -126,21 +126,47 @@ func Example_numerics() {
 	// performing a more intuitive (to the human) truncation to zero.
 	fmt.Println(conv.Uint(`-123.456`)) // 0
 
-	// Numeric conversions from Float -> time.Duration will separate the integer
-	// and fractional portions into a more natural conversion.
-	fmt.Println(conv.Duration(`12.34`)) // 12.34s
-
-	// All other numeric conversions to durations assign the elapsed nanoseconds using Go
-	// conversions.
-	fmt.Println(conv.Duration(`123456`)) // 34h17m36s
-
 	// Output:
 	// -123
 	// 0
-	// 12.34s
+}
+
+// Duration conversion supports all the paths provided by the standard libraries
+// time.ParseDuration when converting from strings, with a couple enhancements
+// outlined below.
+func Example_durations() {
+
+	// Duration conversion from other time.Duration values will be returned
+	// without modification.
+	fmt.Println(conv.Duration(time.Duration(time.Second))) // 1s
+	fmt.Println(conv.Duration("1h30m"))                    // 1h30m0s
+
+	// Duration conversions from floats will separate the integer
+	// and fractional portions into a more natural conversion.
+	fmt.Println(conv.Duration("12.15"))
+
+	// All other duration conversions from numeric types assign the
+	// elapsed nanoseconds using Go conversions.
+	fmt.Println(conv.Duration(`123456`)) // 34h17m36s
+
+	// Output:
+	// 1s
+	// 1h30m0s
+	// 12.15s
 	// 34h17m36s
 }
 
+// Slice conversion will infer the element type from the given slice, using the
+// associated conversion function as the given structure is traversed
+// recursively. The behavior if the value is mutated during iteration is
+// undefined, though at worst an error will be returned as this library will
+// never panic.
+//
+// An error is returned if the below restrictions are not met:
+//
+//   - It must be a pointer to a slice, it does not have to be initialized
+//   - The element must be a T or *T of a type supported by this library
+//
 func Example_slices() {
 
 	// Slice does not need initialized.
@@ -162,6 +188,27 @@ func Example_slices() {
 	// v: 6789
 }
 
+// Map conversion will infer the conversion functions to use from the key and
+// element types of the given map. The second argument will be walked as
+// described in the supporting package, go-iter.
+//
+// An error is returned if the below restrictions are not met:
+//
+//   - It must be a non-pointer, non-nil initialized map
+//   - Both the key and element T must be supported by this library
+//   - The key must be a value T, the element may be a T or *T
+//
+// Excerpt from github.com/cstockton/go-iter iter.Walk:
+//
+// Walk will recursively walk the given interface value as long as an error does
+// not occur. The pair func will be given a interface value for each value
+// visited during walking and is expected to return an error if it thinks the
+// traversal should end. A nil value and error is given to the walk func if an
+// inaccessible value (can't reflect.Interface()) is found.
+//
+// Walk is called on each element of maps, slices and arrays. If the underlying
+// iterator is configured for channels it receives until one fails. Channels
+// should probably be avoided as ranging over them is more concise.
 func Example_maps() {
 
 	// Map must be initialized
@@ -196,6 +243,8 @@ func Example_maps() {
 // in a healthy state, i.e. uderlying system instability, memory exhaustion. If
 // you are able to create a reproducible panic please file a bug report.
 func Example_panics() {
+
+	// The zero value for the target type is always returned.
 	fmt.Println(conv.Bool(nil))
 	fmt.Println(conv.Bool([][]int{}))
 	fmt.Println(conv.Bool((chan string)(nil)))
