@@ -14,7 +14,7 @@
   > Example:
   > ```Go
   > // Basic types
-  > fmt.Printf("Basics:\n  `TRUE` -> %#v\n  `1.23` -> %#v\n  `1m2s` -> %#v\n\n",
+  > fmt.Printf("Basics:\n  `TRUE` -> %#v\n  `12.3` -> %#v\n  `1m2s` -> %#v\n\n",
   > 	conv.Bool("YES"), conv.Int64("12.3"), conv.Duration("1m2s"))
   > 
   > // Slice and map support
@@ -28,7 +28,7 @@
   > ```Go
   > Basics:
   >   `TRUE` -> true
-  >   `1.23` -> 12
+  >   `12.3` -> 12
   >   `1m2s` -> 62000000000
   > 
   > Slice:
