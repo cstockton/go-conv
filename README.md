@@ -31,7 +31,7 @@
   >   -> true
   > conv.Duration(`1m2s`)
   >   -> 1m2s
-  > conv.Time(`Sat Mar 7 11:06:39 PST 2015`)
+  > conv.Infer(&date, `Sat Mar 7 11:06:39 PST 2015`)
   >   -> 2015-03-07 11:06:39 +0000 PST
   > ```
 
