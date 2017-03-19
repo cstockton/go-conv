@@ -3,7 +3,7 @@ package convert
 
 import "time"
 
-// Converter supports conversion accross Go types.
+// Converter supports conversion across Go types.
 type Converter interface {
 
 	// Bool returns the bool representation from the given interface value.
