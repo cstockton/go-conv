@@ -1,4 +1,4 @@
-package conv
+package refconv
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/cstockton/go-conv/internal/refutil"
 )
 
 var (
@@ -20,9 +22,7 @@ func (c Conv) convStrToDuration(v string) (time.Duration, error) {
 		return parsed, nil
 	}
 	if parsed, err := strconv.ParseInt(v, 10, 0); err == nil {
-		// @TODO This feels more natural but maybe add a option to disable since
-		// it breaks Duration() -> String() -> Duration()
-		return time.Duration(parsed) * time.Second, nil
+		return time.Duration(parsed), nil
 	}
 	if parsed, err := strconv.ParseFloat(v, 64); err == nil {
 		return time.Duration(1e9 * parsed), nil
@@ -30,24 +30,23 @@ func (c Conv) convStrToDuration(v string) (time.Duration, error) {
 	return 0, fmt.Errorf("cannot parse %#v (type string) as time.Duration", v)
 }
 
-func (c Conv) convNumToDuration(
-	k reflect.Kind, v reflect.Value) (time.Duration, bool) {
+func (c Conv) convNumToDuration(k reflect.Kind, v reflect.Value) (time.Duration, bool) {
 	switch {
-	case isKindInt(k):
+	case refutil.IsKindInt(k):
 		return time.Duration(v.Int()), true
-	case isKindUint(k):
+	case refutil.IsKindUint(k):
 		T := v.Uint()
 		if T > math.MaxInt64 {
 			T = math.MaxInt64
 		}
 		return time.Duration(T), true
-	case isKindFloat(k):
+	case refutil.IsKindFloat(k):
 		T := v.Float()
 		if math.IsNaN(T) || math.IsInf(T, 0) {
 			return 0, true
 		}
 		return time.Duration(1e9 * T), true
-	case isKindComplex(k):
+	case refutil.IsKindComplex(k):
 		T := v.Complex()
 		if cmplx.IsNaN(T) || cmplx.IsInf(T) {
 			return 0, true
@@ -57,6 +56,10 @@ func (c Conv) convNumToDuration(
 	return 0, false
 }
 
+type durationConverter interface {
+	Duration() (time.Duration, error)
+}
+
 // Duration attempts to convert the given value to time.Duration, returns the
 // zero value and an error on failure.
 func (c Conv) Duration(from interface{}) (time.Duration, error) {
@@ -64,29 +67,25 @@ func (c Conv) Duration(from interface{}) (time.Duration, error) {
 		return c.convStrToDuration(T)
 	} else if T, ok := from.(time.Duration); ok {
 		return T, nil
-	} else if c, ok := from.(interface {
-		Duration() (time.Duration, error)
-	}); ok {
+	} else if c, ok := from.(durationConverter); ok {
 		return c.Duration()
 	}
 
-	value := reflect.ValueOf(indirect(from))
+	value := refutil.IndirectVal(reflect.ValueOf(from))
 	kind := value.Kind()
 	switch {
 	case reflect.String == kind:
 		return c.convStrToDuration(value.String())
-	case isKindNumeric(kind):
+	case refutil.IsKindNumeric(kind):
 		if parsed, ok := c.convNumToDuration(kind, value); ok {
 			return parsed, nil
 		}
-	case reflect.Struct == kind && value.CanInterface():
-		v := value.Interface()
-		if T, ok := v.(time.Time); ok {
-			// @TODO I find this useful but is it WTF?
-			return time.Since(T), nil
-		}
 	}
 	return 0, newConvErr(from, "time.Duration")
+}
+
+type timeConverter interface {
+	Time() (time.Time, error)
 }
 
 // Time attempts to convert the given value to time.Time, returns the zero value
@@ -96,17 +95,15 @@ func (c Conv) Time(from interface{}) (time.Time, error) {
 		return T, nil
 	} else if T, ok := from.(*time.Time); ok {
 		return *T, nil
-	} else if c, ok := from.(interface {
-		Time() (time.Time, error)
-	}); ok {
+	} else if c, ok := from.(timeConverter); ok {
 		return c.Time()
 	}
 
-	value := reflect.ValueOf(indirect(from))
+	value := reflect.ValueOf(refutil.Indirect(from))
 	kind := value.Kind()
 	switch {
 	case reflect.String == kind:
-		if T, ok := timeFromString(value.String()); ok {
+		if T, ok := convStringToTime(value.String()); ok {
 			return T, nil
 		}
 	case reflect.Struct == kind:
@@ -178,7 +175,7 @@ var formats = []formatInfo{
 // I can find a decent lexer or polish up my "timey" Go lib. I am using the
 // table of dates politely released into public domain by github.com/tomarus:
 //   https://github.com/tomarus/parsedate/blob/master/parsedate.go
-func timeFromString(s string) (time.Time, bool) {
+func convStringToTime(s string) (time.Time, bool) {
 	if len(s) == 0 {
 		return time.Time{}, false
 	}

@@ -13,19 +13,34 @@
   >
   > Example:
   > ```Go
-  > {{ HeaderExample.Code }}
+  > // Basic types
+  > if got, err := conv.Bool(`TRUE`); err == nil {
+  > 	fmt.Printf("conv.Bool(`TRUE`)\n  -> %v\n", got)
+  > }
+  > if got, err := conv.Time(`Sat Mar 7 11:06:39 PST 2015`); err == nil {
+  > 	fmt.Printf("conv.Time(`Sat Mar 7 11:06:39 PST 2015`)\n  -> %v\n", got)
+  > }
+  > if got, err := conv.Duration(`1m2s`); err == nil {
+  > 	fmt.Printf("conv.Duration(`1m2s`)\n  -> %v\n", got)
+  > }
   > ```
   >
   > Output:
   > ```Go
-  > {{ HeaderExample.Output }}
+  > conv.Bool(`TRUE`)
+  >   -> true
+  > conv.Time(`Sat Mar 7 11:06:39 PST 2015`)
+  >   -> 2015-03-07 11:06:39 +0000 PST
+  > conv.Duration(`1m2s`)
+  >   -> 1m2s
   > ```
 
 
 ## Intro
 
-Package conv provides fast and intuitive conversions across Go types. This library uses reflection to be robust but will bypass it for common conversions, for example string conversion to any type will never use reflection. In most cases this library is as fast or faster then the standard library for similar operations due to various aggressive (but safe) optimizations. The only external dependency ([iter](https://github.com/cstockton/go-iter)) has 100% test coverage and is maintained by me. It is used to walk the values given for map and slice conversion and will **never panic**. All methods and functions are **safe for concurrent use by multiple Goroutines**, with a single exception that Slice and Map conversion under certain circumstances may produce undefined results if they are mutated while being traversed.
+**Notice:** If you begin getting compilation errors use the v1 import path `gopkg.in/cstockton/go-conv.v1` for an immediate fix and to future-proof.
 
+Package conv provides fast and intuitive conversions across Go types. This library uses reflection to be robust but will bypass it for common conversions, for example string conversion to any type will never use reflection. All functions are safe for concurrent use by multiple Goroutines.
 
 {{ range Examples -}}
 ### {{ .Title }}
