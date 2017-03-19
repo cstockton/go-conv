@@ -17,22 +17,22 @@
   > if got, err := conv.Bool(`TRUE`); err == nil {
   > 	fmt.Printf("conv.Bool(`TRUE`)\n  -> %v\n", got)
   > }
-  > if got, err := conv.Time(`Sat Mar 7 11:06:39 PST 2015`); err == nil {
-  > 	fmt.Printf("conv.Time(`Sat Mar 7 11:06:39 PST 2015`)\n  -> %v\n", got)
-  > }
   > if got, err := conv.Duration(`1m2s`); err == nil {
   > 	fmt.Printf("conv.Duration(`1m2s`)\n  -> %v\n", got)
   > }
+  > var date time.Time
+  > err := conv.Infer(&date, `Sat Mar 7 11:06:39 PST 2015`)
+  > fmt.Printf("conv.Time(`Sat Mar 7 11:06:39 PST 2015`)\n  -> %v\n", got)
   > ```
   >
   > Output:
   > ```Go
   > conv.Bool(`TRUE`)
   >   -> true
-  > conv.Time(`Sat Mar 7 11:06:39 PST 2015`)
-  >   -> 2015-03-07 11:06:39 +0000 PST
   > conv.Duration(`1m2s`)
   >   -> 1m2s
+  > conv.Time(`Sat Mar 7 11:06:39 PST 2015`)
+  >   -> 2015-03-07 11:06:39 +0000 PST
   > ```
 
 

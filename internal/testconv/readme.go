@@ -166,7 +166,7 @@ func (g *SrcGen) Check() error {
 		return errors.New("error: check for Name field failed because it was empty")
 	}
 	if len(g.TplPath) == 0 {
-		g.TplPath = fmt.Sprintf(`testdata/%s.tpl`, g.Name)
+		g.TplPath = fmt.Sprintf(`internal/testdata/%s.tpl`, g.Name)
 	}
 	if len(g.SrcPath) == 0 {
 		g.SrcPath = fmt.Sprintf(`%s`, g.Name)
