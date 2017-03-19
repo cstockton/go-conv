@@ -31,7 +31,7 @@
   >   -> true
   > conv.Duration(`1m2s`)
   >   -> 1m2s
-  > conv.Infer(&date, `Sat Mar 7 11:06:39 PST 2015`)
+  > conv.Time(`Sat Mar 7 11:06:39 PST 2015`)
   >   -> 2015-03-07 11:06:39 +0000 PST
   > ```
 
@@ -52,16 +52,16 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > ```Go
   > // The zero value and a non-nil error is returned on failure.
   > fmt.Println(conv.Int("Foo"))
-  >
+  > 
   > // Conversions are allowed as long as the underlying type is convertable, for
   > // example:
   > type MyString string
   > fmt.Println(conv.Int(MyString("42"))) // 42, nil
-  >
+  > 
   > // Pointers will be dereferenced when appropriate.
   > str := "42"
   > fmt.Println(conv.Int(&str)) // 42, nil
-  >
+  > 
   > // You may infer values from the base type of a pointer, giving you one
   > // function signature for all conversions. This may be convenient when the
   > // types are not known until runtime and reflection must be used.
@@ -95,7 +95,7 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > if err := conv.Infer(&into, `42`); err == nil {
   > 	fmt.Println(into)
   > }
-  >
+  > 
   > // Same as above but using new()
   > truth := new(bool)
   > if err := conv.Infer(truth, `TRUE`); err != nil {
@@ -121,11 +121,11 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > // String conversion from other string values will be returned without
   > // modification.
   > fmt.Println(conv.String("Foo"))
-  >
+  > 
   > // As a special case []byte will also be returned after a Go string conversion
   > // is applied.
   > fmt.Println(conv.String([]byte("Foo")))
-  >
+  > 
   > // String conversion from types that do not have a valid conversion path will
   > // still have sane string conversion for troubleshooting.
   > fmt.Println(conv.String(struct{ msg string }{"Foo"}))
@@ -152,7 +152,7 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > // modification.
   > fmt.Println(conv.Bool(true))
   > fmt.Println(conv.Bool(false))
-  >
+  > 
   > // Bool conversion from strings consider the following values true:
   > //   "t", "T", "true", "True", "TRUE",
   > // 	 "y", "Y", "yes", "Yes", "YES", "1"
@@ -162,7 +162,7 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > //   "n", "N", "no", "No", "NO", "0"
   > fmt.Println(conv.Bool("T"))
   > fmt.Println(conv.Bool("False"))
-  >
+  > 
   > // Bool conversion from other supported types will return true unless it is
   > // the zero value for the given type.
   > fmt.Println(conv.Bool(int64(123)))
@@ -171,7 +171,7 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > fmt.Println(conv.Bool(time.Duration(0)))
   > fmt.Println(conv.Bool(time.Now()))
   > fmt.Println(conv.Bool(time.Time{}))
-  >
+  > 
   > // All other types will return false.
   > fmt.Println(conv.Bool(struct{ string }{""}))
   > ```
@@ -208,7 +208,7 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > // Conversion functions will always try to parse the value as the target type
   > // first. If parsing fails float parsing with truncation will be attempted.
   > fmt.Println(conv.Int("-123.456")) // -123
-  >
+  > 
   > // This does not apply for unsigned integers if the value is negative. Instead
   > // performing a more intuitive (to the human) truncation to zero.
   > fmt.Println(conv.Uint("-123.456")) // 0
@@ -233,18 +233,18 @@ Package conv provides fast and intuitive conversions across Go types. This libra
   > // duration value using ParseDuration, then fall back to numeric conventions.
   > fmt.Println(conv.Duration("1h1m100ms"))     // 1h1m0.1s
   > fmt.Println(conv.Duration("3660100000000")) // 1h1m0.1s
-  >
+  > 
   > // Numeric conversions directly convert to time.Duration nanoseconds.
   > fmt.Println(conv.Duration(3660100000000)) // 1h1m0.1s
-  >
+  > 
   > // Floats deviate from the numeric conversion rules, instead
   > // separating the integer and fractional portions into seconds.
   > fmt.Println(conv.Duration("3660.10"))        // 1h1m0.1s
   > fmt.Println(conv.Duration(float64(3660.10))) // 1h1m0.1s
-  >
+  > 
   > // Complex numbers are Float conversions using the real number.
   > fmt.Println(conv.Duration(complex(3660.10, 0))) // 1h1m0.1s
-  >
+  > 
   > // Duration conversion from time.Duration and any numerical type will be
   > // converted using a standard Go conversion. This includes strings
   > fmt.Println(conv.Duration(time.Nanosecond)) // 1s

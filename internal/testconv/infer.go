@@ -6,17 +6,6 @@ import (
 )
 
 func RunInferTests(t *testing.T, fn func(into, from interface{}) error) {
-	// // Infer should work as a drop in replacement for Structs, Slices and Maps
-	// t.Run("Structs", func(t *testing.T) {
-	// 	RunStructTests(t, fn)
-	// })
-	// t.Run("Slices", func(t *testing.T) {
-	// 	RunSliceTests(t, fn)
-	// })
-	// t.Run("Maps", func(t *testing.T) {
-	// 	RunMapTests(t, fn)
-	// })
-
 	// Should work with all other assertions
 	t.Run("Assertions", func(t *testing.T) {
 		for _, a := range assertions {
@@ -47,6 +36,7 @@ func RunInferTests(t *testing.T, fn func(into, from interface{}) error) {
 			{nil, nil},                // kind invalid
 			{nil, (interface{})(nil)}, // from kind
 			{0, nil},                  // non ptr
+			{&struct{}{}, nil},        // struct fallthrough
 			{(*complex128)(nil), nil},
 			{(*interface{})(nil), nil},
 			{(*interface{})(nil), (interface{})(nil)},
