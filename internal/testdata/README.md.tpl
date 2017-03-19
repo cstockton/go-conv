@@ -22,7 +22,7 @@
   > }
   > var date time.Time
   > err := conv.Infer(&date, `Sat Mar 7 11:06:39 PST 2015`)
-  > fmt.Printf("conv.Time(`Sat Mar 7 11:06:39 PST 2015`)\n  -> %v\n", got)
+  > fmt.Printf("conv.Infer(&date, `Sat Mar 7 11:06:39 PST 2015`)\n  -> %v\n", got)
   > ```
   >
   > Output:
