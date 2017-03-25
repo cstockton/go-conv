@@ -27,5 +27,5 @@ func TestConv(t *testing.T) {
 
 	// Generates README.md based on testdata/README.md.tpl using examples from
 	// the example_test.go file.
-	testconv.RunReadmeTest(t, `example_test.go`)
+	testconv.RunReadmeTest(t, `example_test.go`, `conv_test.go`)
 }

@@ -2,6 +2,7 @@ package conv_test
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	conv "github.com/cstockton/go-conv"
@@ -38,59 +39,11 @@ func Example() {
 	// 42 <nil>
 }
 
-// Infer will perform conversion by inferring the conversion operation from
-// a pointer to a supported T of the `into` param. Since the value is assigned
-// directly only a error value is returned, meaning no type assertions needed.
-func Example_infer() {
-
-	// Infer requires a pointer to all types.
-	var into int
-	if err := conv.Infer(into, `42`); err != nil {
-		fmt.Println(err)
-	}
-	if err := conv.Infer(&into, `42`); err == nil {
-		fmt.Println(into)
-	}
-
-	// Same as above but using new()
-	truth := new(bool)
-	if err := conv.Infer(truth, `TRUE`); err != nil {
-		fmt.Println("Failed!")
-	}
-
-	// Output:
-	// cannot infer conversion for non-pointer 0 (type int)
-	// 42
-}
-
-// String conversion from any values outside the cases below will simply be the
-// result of calling fmt.Sprintf("%v", value), meaning it can not fail. An error
-// is still provided and you should check it to be future proof.
-func Example_strings() {
-
-	// String conversion from other string values will be returned without
-	// modification.
-	fmt.Println(conv.String("Foo"))
-
-	// As a special case []byte will also be returned after a Go string conversion
-	// is applied.
-	fmt.Println(conv.String([]byte("Foo")))
-
-	// String conversion from types that do not have a valid conversion path will
-	// still have sane string conversion for troubleshooting.
-	fmt.Println(conv.String(struct{ msg string }{"Foo"}))
-
-	// Output:
-	// Foo <nil>
-	// Foo <nil>
-	// {Foo} <nil>
-}
-
 // Bool conversion supports all the paths provided by the standard libraries
 // strconv.ParseBool when converting from a string, all other conversions are
 // simply true when not the types zero value. As a special case zero length map
 // and slice types are also false, even if initialized.
-func Example_bools() {
+func ExampleBool() {
 
 	// Bool conversion from other bool values will be returned without
 	// modification.
@@ -133,33 +86,10 @@ func Example_bools() {
 	// false cannot convert struct { string }{string:""} (type struct { string }) to bool
 }
 
-// Numeric conversion from other numeric values of an identical type will be
-// returned without modification. Numeric conversions deviate slightly from Go
-// when dealing with under/over flow. When performing a conversion operation
-// that would overflow, we instead assign the maximum value for the target type.
-// Similarly, conversions that would underflow are assigned the minimun value
-// for that type, meaning unsigned integers are given zero values instead of
-// spilling into large positive integers.
-func Example_numerics() {
-
-	// For more natural Float -> Integer when the underlying value is a string.
-	// Conversion functions will always try to parse the value as the target type
-	// first. If parsing fails float parsing with truncation will be attempted.
-	fmt.Println(conv.Int("-123.456")) // -123
-
-	// This does not apply for unsigned integers if the value is negative. Instead
-	// performing a more intuitive (to the human) truncation to zero.
-	fmt.Println(conv.Uint("-123.456")) // 0
-
-	// Output:
-	// -123 <nil>
-	// 0 <nil>
-}
-
 // Duration conversion supports all the paths provided by the standard libraries
 // time.ParseDuration when converting from strings, with a couple enhancements
 // outlined below.
-func Example_durations() {
+func ExampleDuration() {
 
 	// Duration conversion from strings will first attempt to parse as a Go
 	// duration value using ParseDuration, then fall back to numeric conventions.
@@ -181,7 +111,6 @@ func Example_durations() {
 	// converted using a standard Go conversion. This includes strings
 	fmt.Println(conv.Duration(time.Nanosecond)) // 1s
 	fmt.Println(conv.Duration(byte(1)))         // 1ns
-
 	// Output:
 	// 1h1m0.1s <nil>
 	// 1h1m0.1s <nil>
@@ -191,6 +120,162 @@ func Example_durations() {
 	// 1h1m0.1s <nil>
 	// 1ns <nil>
 	// 1ns <nil>
+}
+
+// Float64 conversion from other float values of an identical type will be
+// returned without modification. Float64 from other types follow the general
+// numeric rules.
+func ExampleFloat64() {
+
+	fmt.Println(conv.Float64(float64(123.456))) // 123.456
+	fmt.Println(conv.Float64("-123.456"))       // -123.456
+	fmt.Println(conv.Float64("1.7976931348623157e+308"))
+	// Output:
+	// 123.456 <nil>
+	// -123.456 <nil>
+	// 1.7976931348623157e+308 <nil>
+}
+
+// Infer will perform conversion by inferring the conversion operation from
+// a pointer to a supported T of the `into` param. Since the value is assigned
+// directly only a error value is returned, meaning no type assertions needed.
+func ExampleInfer() {
+
+	// Infer requires a pointer to all types.
+	var into int
+	if err := conv.Infer(into, `42`); err != nil {
+		fmt.Println(err)
+	}
+	if err := conv.Infer(&into, `42`); err == nil {
+		fmt.Println(into)
+	}
+
+	// Same as above but using new()
+	truth := new(bool)
+	if err := conv.Infer(truth, `TRUE`); err != nil {
+		fmt.Println("Failed!")
+	}
+	// Output:
+	// cannot infer conversion for non-pointer 0 (type int)
+	// 42
+}
+
+// Int conversions follow the the general numeric rules.
+func ExampleInt() {
+
+	fmt.Println(conv.Uint("123.456"))               // 123
+	fmt.Println(conv.Uint("-123.456"))              // 0
+	fmt.Println(conv.Uint8(uint64(math.MaxUint64))) // 255
+	// Output:
+	// 123 <nil>
+	// 0 <nil>
+	// 255 <nil>
+}
+
+// String conversion from any values outside the cases below will simply be the
+// result of calling fmt.Sprintf("%v", value), meaning it can not fail. An error
+// is still provided and you should check it to be future proof.
+func ExampleString() {
+
+	// String conversion from other string values will be returned without
+	// modification.
+	fmt.Println(conv.String("Foo"))
+
+	// As a special case []byte will also be returned after a Go string conversion
+	// is applied.
+	fmt.Println(conv.String([]byte("Foo")))
+
+	// String conversion from types that do not have a valid conversion path will
+	// still have sane string conversion for troubleshooting.
+	fmt.Println(conv.String(struct{ msg string }{"Foo"}))
+	// Output:
+	// Foo <nil>
+	// Foo <nil>
+	// {Foo} <nil>
+}
+
+// Time conversion from other time values will be returned without modification.
+func ExampleTime() {
+
+	// Time conversion from other time.Time values will be returned without
+	// modification.
+	fmt.Println(`Times:`)
+	fmt.Println(conv.Time(time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)))
+
+	// Time conversion from strings will be passed through time.Parse using a
+	// variety of formats. Strings that could not be parsed along with all other
+	// values will return an empty time.Time{} struct.
+	fmt.Println(`Strings:`)
+	formats := []string{
+		`Mon, 02 Jan 2006 15:04:05`,
+		`Mon, 02 Jan 2006 15:04:05 UTC`,
+		`Mon, 2 Jan 2006 15:04:05`,
+		`Mon, 2 Jan 2006 15:04:05 UTC`,
+		`02 Jan 2006 15:04 UTC`,
+		`2 Jan 2006 15:04:05`,
+		`2 Jan 2006 15:04:05 UTC`,
+	}
+	for _, format := range formats {
+		t, err := conv.Time(format)
+		if err != nil {
+			fmt.Println(`Conversion error: `, err)
+		}
+		fmt.Printf("%v <-- (%v)\n", t, format)
+	}
+
+	// Time conversion from types that do not have a valid conversion path will
+	// return the zero value and an error.
+	fmt.Println(`Errors:`)
+	fmt.Println(conv.Time(1))    // cannot convert 1 (type int) to time.Time
+	fmt.Println(conv.Time(true)) // cannot convert true (type bool) to time.Time
+	// Output:
+	// Times:
+	// 2006-01-02 15:04:05 +0000 UTC <nil>
+	// Strings:
+	// 2006-01-02 15:04:05 +0000 UTC <-- (Mon, 02 Jan 2006 15:04:05)
+	// 2006-01-02 15:04:05 +0000 UTC <-- (Mon, 02 Jan 2006 15:04:05 UTC)
+	// 2006-01-02 15:04:05 +0000 UTC <-- (Mon, 2 Jan 2006 15:04:05)
+	// 2006-01-02 15:04:05 +0000 UTC <-- (Mon, 2 Jan 2006 15:04:05 UTC)
+	// 2006-01-02 15:04:00 +0000 UTC <-- (02 Jan 2006 15:04 UTC)
+	// 2006-01-02 15:04:05 +0000 UTC <-- (2 Jan 2006 15:04:05)
+	// 2006-01-02 15:04:05 +0000 UTC <-- (2 Jan 2006 15:04:05 UTC)
+	// Errors:
+	// 0001-01-01 00:00:00 +0000 UTC cannot convert 1 (type int) to time.Time
+	// 0001-01-01 00:00:00 +0000 UTC cannot convert true (type bool) to time.Time
+}
+
+// Uint conversions follow the the general numeric rules.
+func ExampleUint() {
+
+	fmt.Println(conv.Uint("123.456"))               // 123
+	fmt.Println(conv.Uint("-123.456"))              // 0
+	fmt.Println(conv.Uint8(uint64(math.MaxUint64))) // 255
+	// Output:
+	// 123 <nil>
+	// 0 <nil>
+	// 255 <nil>
+}
+
+// Numeric conversion from other numeric values of an identical type will be
+// returned without modification. Numeric conversions deviate slightly from Go
+// when dealing with under/over flow. When performing a conversion operation
+// that would overflow, we instead assign the maximum value for the target type.
+// Similarly, conversions that would underflow are assigned the minimun value
+// for that type, meaning unsigned integers are given zero values instead of
+// spilling into large positive integers.
+func Example_numerics() {
+
+	// For more natural Float -> Integer when the underlying value is a string.
+	// Conversion functions will always try to parse the value as the target type
+	// first. If parsing fails float parsing with truncation will be attempted.
+	fmt.Println(conv.Int("-123.456")) // -123
+
+	// This does not apply for unsigned integers if the value is negative. Instead
+	// performing a more intuitive (to the human) truncation to zero.
+	fmt.Println(conv.Uint("-123.456")) // 0
+	// Output:
+	// -123 <nil>
+	// 0 <nil>
 }
 
 // In short, panics should not occur within this library under any circumstance.
@@ -206,7 +291,6 @@ func Example_panics() {
 	fmt.Println(conv.Bool((*interface{})(nil)))
 	fmt.Println(conv.Bool((*interface{})(nil)))
 	fmt.Println(conv.Bool((**interface{})(nil)))
-
 	// Output:
 	// false cannot convert <nil> (type <nil>) to bool
 	// false <nil>

@@ -37,20 +37,24 @@ func generateReadme(t *testing.T, fset *token.FileSet, examples []*doc.Example) 
 	var buf bytes.Buffer
 	for i, example := range examples {
 		buf.Reset()
-		format.Node(&buf, fset, example.Play)
 
-		play := buf.String()
-		idx := strings.Index(play, "func main() {") + 16
-		if idx == -1 {
-			t.Fatalf("bad formatting in example %v, could not find main() func", example.Name)
+		var code string
+		if example.Play != nil {
+			format.Node(&buf, fset, example.Play)
+
+			play, search := buf.String(), "func main() {"
+			idx := strings.Index(play, search)
+			if idx == -1 {
+				t.Fatalf("bad formatting in example %v, could not find main() func", example.Name)
+			}
+			code = play[idx+len(search) : len(play)]
+		} else {
+			format.Node(&buf, fset, example.Code)
+			code = buf.String()
 		}
 
-		title := strings.Title(strings.TrimLeft(example.Name, "_"))
-		if 0 == len(title) {
-			title = "Overview"
-		}
-
-		code := rewrap(&buf, "\n  > ", play[idx:len(play)-4])
+		code = strings.Trim(code, "\t\r\n{}")
+		code = rewrap(&buf, "\n  > ", code)
 		if 0 == len(code) {
 			t.Fatalf("bad formatting in example %v, had no code", example.Name)
 		}
@@ -58,6 +62,11 @@ func generateReadme(t *testing.T, fset *token.FileSet, examples []*doc.Example) 
 		output := rewrap(&buf, "\n  > ", example.Output)
 		if 0 == len(output) {
 			t.Fatalf("bad formatting in example %v, had no output", example.Name)
+		}
+
+		title := strings.Title(strings.TrimLeft(example.Name, "_"))
+		if 0 == len(title) {
+			title = "Overview"
 		}
 
 		// the header example has no summary
@@ -86,11 +95,12 @@ func generateReadme(t *testing.T, fset *token.FileSet, examples []*doc.Example) 
 }
 
 type ReadmeExample struct {
-	Example *doc.Example
-	Title   string
-	Summary string
-	Code    string
-	Output  string
+	Example  *doc.Example
+	Complete bool
+	Title    string
+	Summary  string
+	Code     string
+	Output   string
 }
 
 type ReadmeExamples []ReadmeExample
