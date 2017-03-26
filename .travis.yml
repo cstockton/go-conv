@@ -1,9 +1,17 @@
 language: go
 
+os:
+  - linux
+  - osx
+
 go:
+  - tip
   - 1.8
   - 1.7
-  - tip
+
+matrix:
+  allow_failures:
+    - go: tip
 
 before_install:
   - go get -t -v ./...
