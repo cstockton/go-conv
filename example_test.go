@@ -156,7 +156,7 @@ func ExampleInfer() {
 		fmt.Println("Failed!")
 	}
 	// Output:
-	// cannot infer conversion for non-pointer 0 (type int)
+	// cannot infer conversion for unchangeable 0 (type int)
 	// 42
 }
 
