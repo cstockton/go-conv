@@ -8,17 +8,26 @@ import (
 // Infer will perform conversion by inferring the conversion operation from
 // the T of `into`.
 func (c Conv) Infer(into, from interface{}) error {
-	value := reflect.ValueOf(into)
+	var value reflect.Value
+	switch into := into.(type) {
+	case reflect.Value:
+		value = into
+	default:
+		value = reflect.ValueOf(into)
+	}
+
 	if !value.IsValid() {
 		return fmt.Errorf("%T is not a valid value", into)
 	}
 
-	kind := value.Kind()
-	if kind != reflect.Ptr {
-		return fmt.Errorf(`cannot infer conversion for non-pointer %v (type %[1]T)`, into)
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
 	}
 
-	value = value.Elem()
+	if !value.CanSet() {
+		return fmt.Errorf(`cannot infer conversion for unchangeable %v (type %[1]T)`, into)
+	}
+
 	v, err := c.infer(value, from)
 	if err != nil {
 		return err
